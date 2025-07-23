@@ -131,4 +131,14 @@ def get_series(cur: sqlite3.Cursor) -> list[Series]:
             if release_date:
                 release_years.append(int(release_date[:4]))
         s["year"] = min(release_years)
+        # get oneshot status for series
+        sql_cmd = format_sql(
+            f'''
+            SELECT oneshot
+            FROM series
+            WHERE id is "{s["id"]}"
+            '''
+        )
+        oneshot = cur.execute(sql_cmd).fetchone()[0]
+        s["oneshot"] = oneshot
     return series
