@@ -1,2 +1,4 @@
-tests/backups
-tests/testdbs
+tests/backups/
+tests/testdbs/
+.idea/
+.venv/
