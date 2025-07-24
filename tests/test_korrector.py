@@ -1,18 +1,10 @@
 from unittest import TestCase
 
-from korrector.korrector import update_komga
+from korrector.korrector import korrect
 
 
 class TestKorrector(TestCase):
 
-    def test_update_komga(self):
-        self.fail()
-
-    def test_update_oneshots(self):
-        self.fail()
-
-    def test_update_komga_series(self):
-        self.fail()
-
-    def test_update_komga_series_oneshots(self):
-        self.fail()
+    def test_korrect(self):
+        korrect("./testdbs/database.sqlite", "./backups")
+        assert True

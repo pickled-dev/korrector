@@ -1,2 +1,2 @@
-backups
-testdbs
+tests/backups
+tests/testdbs
