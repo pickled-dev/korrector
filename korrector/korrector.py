@@ -28,55 +28,6 @@ def format_sql(sql_cmd: str) -> str:
     return " ".join(sql_cmd.split())
 
 
-def korrect(komga_db_path: str, komga_backup: str) -> None:
-    backup(komga_db_path, komga_backup)
-    con = sqlite3.connect(f"{komga_db_path}")
-    cur = con.cursor()
-    sql_cmd = format_sql(
-        """
-        SELECT id
-        FROM series
-        """
-    )
-    series_ids = cur.execute(sql_cmd).fetchall()
-    for series_id in series_ids:
-        series_id = series_id[0]
-        # skip series that already have the year in the title
-        metadata_title = get_metadata_title(series_id, cur)
-        if metadata_title and "(" in metadata_title and ")" in metadata_title:
-            continue
-        try:
-            s = get_series(series_id, cur)
-        except AttributeError:
-            print(f"No year found in the name of {metadata_title}. Skipping.")
-            continue
-        title = f"{s["metadata_title"]} ({s["year"]})"
-        # replace single quotes with 2 single quotes to escape single quotes in SQL
-        title = re.sub(r"'", r"''", title)
-        sql_cmd = format_sql(
-            f'''
-            UPDATE series_metadata
-            SET title = '{title}'
-            WHERE series_id is "{s["id"]}"
-            '''
-        )
-        print(f"Updating series {s["metadata_title"]} ({s["name"]}) to {title}")
-        cur.execute(sql_cmd)
-        con.commit()
-
-
-def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
-    s: Series = {
-        "id": series_id,
-        "name": get_name(series_id, cur),
-        "metadata_title": get_metadata_title(series_id, cur),
-        "oneshot": get_oneshot(series_id, cur),
-        "year": "",
-    }
-    s["year"] = get_release_year(s, cur)
-    return s
-
-
 def backup(komga_db_path: str, komga_backup: str) -> None:
     """Backup the Komga database to a specified backup path.
 
@@ -185,3 +136,52 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         )
         return response if response else year
     return release_date.split('-')[0]
+
+
+def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
+    s: Series = {
+        "id": series_id,
+        "name": get_name(series_id, cur),
+        "metadata_title": get_metadata_title(series_id, cur),
+        "oneshot": get_oneshot(series_id, cur),
+        "year": "",
+    }
+    s["year"] = get_release_year(s, cur)
+    return s
+
+
+def korrect(komga_db_path: str, komga_backup: str) -> None:
+    backup(komga_db_path, komga_backup)
+    con = sqlite3.connect(f"{komga_db_path}")
+    cur = con.cursor()
+    sql_cmd = format_sql(
+        """
+        SELECT id
+        FROM series
+        """
+    )
+    series_ids = cur.execute(sql_cmd).fetchall()
+    for series_id in series_ids:
+        series_id = series_id[0]
+        # skip series that already have the year in the title
+        metadata_title = get_metadata_title(series_id, cur)
+        if metadata_title and "(" in metadata_title and ")" in metadata_title:
+            continue
+        try:
+            s = get_series(series_id, cur)
+        except AttributeError:
+            print(f"No year found in the name of {metadata_title}. Skipping.")
+            continue
+        title = f"{s["metadata_title"]} ({s["year"]})"
+        # replace single quotes with 2 single quotes to escape single quotes in SQL
+        title = re.sub(r"'", r"''", title)
+        sql_cmd = format_sql(
+            f'''
+            UPDATE series_metadata
+            SET title = '{title}'
+            WHERE series_id is "{s["id"]}"
+            '''
+        )
+        print(f"Updating series {s["metadata_title"]} ({s["name"]}) to {title}")
+        cur.execute(sql_cmd)
+        con.commit()
