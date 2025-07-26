@@ -291,6 +291,31 @@ def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str)
     return new_title
 
 
+def get_oneshot_book_title(series_id: str, cur: sqlite3.Cursor) -> str:
+    """Retrieves the TITLE from BOOK_METADATA
+
+    As one shots only ever have a single book, we only need a series id to find the one entry
+    in BOOK_METADATA
+
+    Args:
+        series_id (str): The id of the series to retrieve the book title
+        cur (sqlite3.Cursor): The database cursor to use for query
+
+    Returns:
+         str: The title of the oneshot in the series
+    """
+    sql_cmd = format_sql(
+        f'''
+        SELECT bm.title
+        FROM book_metadata bm
+        JOIN book b ON bm.book_id = b.id
+        JOIN series s ON b.series_id = s.id
+        WHERE s.id IS '{series_id}'
+        '''
+    )
+    return cur.execute(sql_cmd).fetchone()[0]
+
+
 def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
     """Generate an SQL update statement to correct the title of a oneshot series using ComicInfo.xml data.
 
@@ -310,19 +335,32 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
     except ValueError:
         return None
     title = get_title_comic_info(series_id, cur, komga_prefix)
-    if not title or title == series["metadata_title"]:
+    if not title or title == get_oneshot_book_title(series_id, cur):
         logger.debug(f"{get_name(series_id, cur)} is already correct [{series["metadata_title"]}]")
         return None
     logger.debug(f"[{series["name"]}]")
     logger.info(f"({series["metadata_title"]}) -> ({title})")
     title = re.sub(r"'", r"''", title)
-    return format_sql(
+    sql_cmd = format_sql(
         f'''
         UPDATE series_metadata
         SET title = '{title}'
         WHERE series_id is '{series["series_id"]}'
         '''
     )
+    cur.execute(sql_cmd)
+    return format_sql(
+        f'''
+        UPDATE book_metadata
+        SET book_metadata.title = '{title}'
+        WHERE book_id IN (
+            SELECT bm.book_id
+            JOIN book b ON bm.book_id = b.id
+            JOIN series s ON b.series_id = s.id
+            WHERE s.id = '{series_id}
+        )
+        '''
+)
 
 
 def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -> str:
