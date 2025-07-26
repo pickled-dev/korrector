@@ -1,4 +1,3 @@
-"""Class for accumulated information about an issue from different sources"""
 import re
 import shutil
 import sqlite3
@@ -148,6 +147,15 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
 
 
 def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
+    """Construct a Series dictionary with information about a series.
+
+    Args:
+        series_id (str): The id of the series to retrieve.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+
+    Returns:
+        Series: A dictionary containing series_id, name, metadata_title, oneshot, and year.
+    """
     s: Series = {
         "series_id": series_id,
         "name": get_name(series_id, cur),
@@ -160,6 +168,18 @@ def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
 
 
 def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
+    """Generate an SQL update statement to correct the title of a series by appending the release year.
+
+    Skips series that already have the year in the title. If the year cannot be determined, the function
+    prints a message and returns None.
+
+    Args:
+        series_id (str): The id of the series to update.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+
+    Returns:
+        str | None: The SQL update statement if a correction is needed, otherwise None.
+    """
     metadata_title = get_metadata_title(series_id, cur)
     # skip series that already have the year in the title
     if metadata_title and "(" in metadata_title and ")" in metadata_title:
@@ -226,6 +246,20 @@ def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
 
 
 def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
+    """
+    Retrieve the title from ComicInfo.xml for a given series.
+
+    If the series is locked, returns None. Otherwise, extracts ComicInfo.xml from the series archive,
+    parses it, and constructs a new title using the series name and year from the XML.
+
+    Args:
+        series_id (str): The id of the series to retrieve.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+        komga_prefix (str): The prefix to use for file paths.
+
+    Returns:
+        str | None: The new title if found, otherwise None.
+    """
     if get_locked(series_id, cur):
         return None
     series_path = get_url(series_id, cur)
@@ -247,7 +281,19 @@ def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str)
 
 
 def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
-    # skip series with correct titles
+    """Generate an SQL update statement to correct the title of a oneshot series using ComicInfo.xml data.
+
+    Skips series that already have the correct title or if the title cannot be determined.
+    Returns None if the title is already correct or cannot be found.
+
+    Args:
+        series_id (str): The id of the series to update.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+        komga_prefix (str): The prefix to use for file paths.
+
+    Returns:
+        str | None: The SQL update statement if a correction is needed, otherwise None.
+    """
     try:
         series = get_series(series_id, cur)
     except ValueError:
@@ -266,6 +312,20 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
 
 
 def korrect_all(komga_db_path: str, komga_backup: str, komga_prefix="") -> None:
+    """Perform a batch correction of series titles in the Komga database.
+
+    This function creates a backup of the Komga database, connects to it, and iterates over all series.
+    For each series, it determines if it is a oneshot or not, generates the appropriate SQL correction
+    statement, and updates the series title in the database if needed.
+
+    Args:
+        komga_db_path (str): Path to the Komga database file.
+        komga_backup (str): Directory where the database backup will be stored.
+        komga_prefix (str, optional): Prefix to use for file paths when extracting ComicInfo.xml. Defaults to "".
+
+    Returns:
+        None
+    """
     backup(komga_db_path, komga_backup)
     con = sqlite3.connect(f"{komga_db_path}")
     cur = con.cursor()
