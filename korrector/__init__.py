@@ -3,3 +3,4 @@
 from .korrector import korrect_all
 
 __version__ = "0.1.0"
+
