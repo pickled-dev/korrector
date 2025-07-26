@@ -1,5 +1,2 @@
-tests/backups/
-tests/testdbs/
-tests/testcomics/
 .idea/
 .venv/
