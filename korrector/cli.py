@@ -2,12 +2,6 @@ import argparse
 import logging
 import sys
 
-logging.basicConfig(
-    level=logging.INFO,
-    stream=sys.stdout,
-    format='%(message)s'
-)
-
 from korrector import korrect_all
 
 logger = logging.getLogger(__name__)
@@ -23,7 +17,12 @@ def main():
     args = parser.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
-    logger.setLevel(level)
+
+    logging.basicConfig(
+        level=level,
+        stream=sys.stdout,
+        format='%(message)s'
+    )
 
     result = korrect_all(args.db_path, args.backup, args.library, args.dry_run)
     print(result)
