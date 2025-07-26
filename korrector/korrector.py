@@ -2,8 +2,14 @@
 import re
 import shutil
 import sqlite3
+import tempfile
+import zipfile
 from datetime import datetime
+from pathlib import Path
 from typing import TypedDict
+from urllib.parse import unquote
+
+import untangle
 
 
 class Series(TypedDict):
@@ -113,7 +119,10 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         str: The release year as a string.
     """
     if series["oneshot"]:
-        return re.search(r'\((\d{4})\)', series["name"]).group(1)
+        match = re.search(r'\((\d{4})\)', series["name"])
+        if not match:
+            raise ValueError(f"No year found in name of {series['name']}.")
+        return match.group(1)
     sql_cmd = format_sql(
         f'''
         SELECT bm.release_date
@@ -173,22 +182,90 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     )
 
 
-def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor) -> str | None:
-    series = get_series(series_id, cur)
-    pattern = re.compile(r'(.*?)(?: v\d+)? #\d{3}(.*)')
-    match = re.match(pattern, series["name"])
-    title = match.group(1) + match.group(2)
+def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
+    """Retrieve the URL of a series given its id.
+
+    Args:
+        series_id (str): The id of the series to retrieve.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+    Returns:
+        str: The URL of the series.
+    """
+    sql_cmd = format_sql(
+        f'''
+        SELECT b.url
+        FROM book b
+        JOIN series s ON b.series_id=s.id
+        WHERE series_id is "{series_id}"
+        '''
+    )
+    return cur.execute(sql_cmd).fetchone()[0]
+
+
+def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
+    """get the TITLE_LOCK field of a series
+
+    when a user manually edits the metadata_title of a series in the komga web interface,
+    it is marked as locked in the SERIES_METADATA table to prevent automatic corrections.
+    0 is not locked, 1 is locked.
+
+    Args:
+        series_id (str): The id of the series to check.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+    Returns:
+        bool: True if the series is locked, False otherwise.
+    """
+    sql_cmd = format_sql(
+        f'''
+        SELECT title_lock
+        FROM series_metadata
+        WHERE series_id is "{series_id}"
+        '''
+    )
+    return cur.execute(sql_cmd).fetchone()[0]
+
+
+def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
+    if get_locked(series_id, cur):
+        return None
+    series_path = get_url(series_id, cur)
+    path = re.sub(r'file://', komga_prefix, unquote(series_path))
+    path = Path(komga_prefix + path)
+    # extract ComicInfo.xml to a temporary directory
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        if not path.exists():
+            return None
+        with zipfile.ZipFile(path, 'r') as zf:
+            if "ComicInfo.xml" not in zf.namelist():
+                return None
+            zf.extract("ComicInfo.xml", tmp_path)
+            info_path = Path(tmp_path / "ComicInfo.xml")
+            info = untangle.parse(str(info_path)).ComicInfo
+            new_title = f'{info.Series.cdata} ({info.Year.cdata})'
+    return new_title
+
+
+def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
+    # skip series with correct titles
+    try:
+        series = get_series(series_id, cur)
+    except ValueError:
+        return None
+    title = get_title_comic_info(series_id, cur, komga_prefix)
+    if not title or title == series["metadata_title"]:
+        return None
     print(f"Updating series {series["metadata_title"]} ({series["name"]}) to {title}")
     return format_sql(
         f'''
-            UPDATE series_metadata
-            SET title = '{title}'
-            WHERE series_id is "{series["series_id"]}"
-            '''
+        UPDATE series_metadata
+        SET title = '{title}'
+        WHERE series_id is "{series["series_id"]}"
+        '''
     )
 
 
-def korrect_all(komga_db_path: str, komga_backup: str) -> None:
+def korrect_all(komga_db_path: str, komga_backup: str, komga_prefix="") -> None:
     backup(komga_db_path, komga_backup)
     con = sqlite3.connect(f"{komga_db_path}")
     cur = con.cursor()
@@ -202,11 +279,10 @@ def korrect_all(komga_db_path: str, komga_backup: str) -> None:
     for series_id in series_ids:
         series_id = series_id[0]
         if get_oneshot(series_id, cur):
-            make_sql_korrection_oneshot(series_id, cur)
+            make_sql_korrection_oneshot(series_id, cur, komga_prefix)
         else:
             sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
         cur.execute(sql_cmd)
         con.commit()
-    print("YOU FOOL")
