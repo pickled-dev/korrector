@@ -63,7 +63,7 @@ def get_name(series_id: str, cur: sqlite3.Cursor) -> str:
         f'''
         SELECT name
         FROM series
-        WHERE id is "{series_id}"
+        WHERE id is '{series_id}'
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
@@ -82,7 +82,7 @@ def get_oneshot(series_id: str, cur: sqlite3.Cursor) -> bool:
         f'''
         SELECT oneshot
         FROM series
-        WHERE id is "{series_id}"
+        WHERE id is '{series_id}'
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
@@ -101,7 +101,7 @@ def get_metadata_title(series_id: str, cur: sqlite3.Cursor) -> str:
         f'''
         SELECT TITLE
         FROM series_metadata
-        WHERE series_id is "{series_id}"
+        WHERE series_id is '{series_id}'
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
@@ -132,7 +132,7 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         FROM book_metadata bm
         JOIN book b ON bm.book_id = b.id
         JOIN series s ON b.series_id = s.id
-        WHERE bm.number = 1 AND s.id = "{series["series_id"]}"
+        WHERE bm.number = '1' AND s.id = '{series["series_id"]}'
         '''
     )
     # TypeError is raised if no issue is numbered 1 in the series
@@ -193,6 +193,7 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
         series = get_series(series_id, cur)
     except AttributeError:
         logger.debug(f"No year found in the name of {metadata_title}. Skipping.")
+
         return None
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
@@ -222,7 +223,7 @@ def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
         SELECT b.url
         FROM book b
         JOIN series s ON b.series_id=s.id
-        WHERE series_id is "{series_id}"
+        WHERE series_id is '{series_id}'
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
@@ -245,7 +246,7 @@ def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
         f'''
         SELECT title_lock
         FROM series_metadata
-        WHERE series_id is "{series_id}"
+        WHERE series_id is '{series_id}'
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
@@ -319,7 +320,7 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
         f'''
         UPDATE series_metadata
         SET title = '{title}'
-        WHERE series_id is "{series["series_id"]}"
+        WHERE series_id is '{series["series_id"]}'
         '''
     )
 
