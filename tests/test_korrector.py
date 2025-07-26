@@ -63,7 +63,7 @@ def make_series(series_id=TEST_SERIES_ID,
     }
 
 
-def insert_series(series, cur, number="1", date:str|None="1999-01-01"):
+def insert_series(series, cur, number="1", date: str | None = "1999-01-01"):
     cur.execute(
         "INSERT INTO SERIES (ID, NAME, oneshot) VALUES (?, ?, ?)",
         (series["series_id"], series["name"], series["oneshot"])
@@ -80,6 +80,7 @@ def insert_series(series, cur, number="1", date:str|None="1999-01-01"):
         "INSERT INTO BOOK_METADATA (NUMBER, RELEASE_DATE, TITLE, BOOK_ID) VALUES (?, ?, ?, ?)",
         (number, date, series["metadata_title"], TEST_BOOK_ID)
     )
+
 
 def test_get_release_year_first_issue():
     con, cur = test_db.make_db()
@@ -120,6 +121,9 @@ series_cases = [
     (make_series(title="Test Title", year=""), None),
     # normal korrection
     (make_series(title="Test Title"), "Test Title (1999)"),
+    # oneshot series without title
+    (make_series(name="Test Title v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True),
+     "Test Title (1999)")
 ]
 
 
@@ -139,6 +143,7 @@ def test_get_korrection(series, title):
         """
     ) if title else None
     assert result == expected
+
 
 def test_get_korrection_input(monkeypatch):
     con, cur = test_db.make_db()
