@@ -152,15 +152,13 @@ def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
 
 def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     metadata_title = get_metadata_title(series_id, cur)
+    # skip series that already have the year in the title
+    if metadata_title and "(" in metadata_title and ")" in metadata_title:
+        return None
     try:
         series = get_series(series_id, cur)
     except AttributeError:
         print(f"No year found in the name of {metadata_title}. Skipping.")
-        return None
-    if series["oneshot"]:
-        return make_sql_korrection_oneshot(series)
-    # skip series that already have the year in the title
-    if metadata_title and "(" in metadata_title and ")" in metadata_title:
         return None
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
@@ -175,7 +173,8 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     )
 
 
-def make_sql_korrection_oneshot(series: Series) -> str | None:
+def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor) -> str | None:
+    series = get_series(series_id, cur)
     pattern = re.compile(r'(.*?)(?: v\d+)? #\d{3}(.*)')
     match = re.match(pattern, series["name"])
     title = match.group(1) + match.group(2)
@@ -202,8 +201,12 @@ def korrect_all(komga_db_path: str, komga_backup: str) -> None:
     series_ids = cur.execute(sql_cmd).fetchall()
     for series_id in series_ids:
         series_id = series_id[0]
-        sql_cmd = make_sql_korrection(series_id, cur)
+        if get_oneshot(series_id, cur):
+            make_sql_korrection_oneshot(series_id, cur)
+        else:
+            sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
         cur.execute(sql_cmd)
         con.commit()
+    print("YOU FOOL")

@@ -121,9 +121,6 @@ series_cases = [
     (make_series(title="Test Title", year=""), None),
     # normal korrection
     (make_series(title="Test Title"), "Test Title (1999)"),
-    # oneshot series without title
-    (make_series(name="Test Title v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True),
-     "Test Title (1999)")
 ]
 
 
@@ -142,6 +139,20 @@ def test_get_korrection(series, title):
         WHERE series_id is "{series["series_id"]}"
         """
     ) if title else None
+    assert result == expected
+
+def test_get_korrection_oneshot():
+    con, cur = test_db.make_db()
+    series = make_series(name="Test Title v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True)
+    insert_series(series, cur, date=None)
+    result = korrector.make_sql_korrection_oneshot(series["series_id"], cur)
+    expected = korrector.format_sql(
+        f"""
+        UPDATE series_metadata
+        SET title = 'Test Title (1999)'
+        WHERE series_id is "{series["series_id"]}"
+        """
+    )
     assert result == expected
 
 
