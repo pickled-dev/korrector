@@ -311,7 +311,7 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
     )
 
 
-def korrect_all(komga_db_path: str, komga_backup="", komga_prefix="") -> None:
+def korrect_all(komga_db: str, backup_path="", komga_prefix="") -> None:
     """Perform a batch correction of series titles in the Komga database.
 
     This function creates a backup of the Komga database, connects to it, and iterates over all series.
@@ -319,16 +319,16 @@ def korrect_all(komga_db_path: str, komga_backup="", komga_prefix="") -> None:
     statement, and updates the series title in the database if needed.
 
     Args:
-        komga_db_path (str): Path to the Komga database file.
-        komga_backup (str, optional): Directory where the database backup will be stored.
+        komga_db (str): Path to the Komga database file.
+        backup (str, optional): Directory where the database backup will be stored.
         komga_prefix (str, optional): Prefix to use for file paths when extracting ComicInfo.xml. Defaults to "".
 
     Returns:
         None
     """
-    if komga_backup:
-        backup(komga_db_path, komga_backup)
-    con = sqlite3.connect(f"{komga_db_path}")
+    if backup_path:
+        backup(komga_db, backup_path)
+    con = sqlite3.connect(f"{komga_db}")
     cur = con.cursor()
     sql_cmd = format_sql(
         """
@@ -347,3 +347,4 @@ def korrect_all(komga_db_path: str, komga_backup="", komga_prefix="") -> None:
             continue
         cur.execute(sql_cmd)
         con.commit()
+    return "Korrection completed successfully."
