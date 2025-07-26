@@ -50,7 +50,7 @@ def test_get_metadata_title():
 
 
 def make_series(series_id=TEST_SERIES_ID,
-                name="Test Name #000 (1999)",
+                name="Test Series #000 (1999)",
                 title="Test Title (1999)",
                 oneshot=False,
                 year="1999") -> Series:
@@ -108,7 +108,7 @@ def test_get_series():
     insert_series(series, cur)
     result = korrector.get_series(TEST_SERIES_ID, cur)
     assert result["series_id"] == TEST_SERIES_ID
-    assert result["name"] == "Test Name #000 (1999)"
+    assert result["name"] == "Test Series #000 (1999)"
     assert result["metadata_title"] == "Test Title (1999)"
     assert not result["oneshot"]
     assert result["year"] == "1999"
@@ -124,26 +124,26 @@ series_cases = [
 ]
 
 
-@pytest.mark.parametrize("series, title", series_cases)
-def test_get_korrection(series, title):
+@pytest.mark.parametrize("series, expected", series_cases)
+def test_get_korrection(series, expected):
     con, cur = test_db.make_db()
     if series["year"] == "":
         insert_series(series, cur, date=None)
     else:
         insert_series(series, cur)
     result = korrector.make_sql_korrection(series["series_id"], cur)
-    expected = korrector.format_sql(
+    expected_sql = korrector.format_sql(
         f"""
         UPDATE series_metadata
-        SET title = '{title}'
+        SET title = '{expected}'
         WHERE series_id is "{series["series_id"]}"
         """
-    ) if title else None
-    assert result == expected
+    ) if expected else None
+    assert result == expected_sql
 
 def test_get_korrection_oneshot():
     con, cur = test_db.make_db()
-    series = make_series(name="Test Title v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True)
+    series = make_series(name="Test Series v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True)
     insert_series(series, cur, date=None)
     result = korrector.make_sql_korrection_oneshot(series["series_id"], cur, "")
     expected = korrector.format_sql(
