@@ -2,12 +2,17 @@
 import re
 import shutil
 import sqlite3
+import zipfile
 from datetime import datetime
+from pathlib import Path
 from typing import TypedDict
+from urllib.parse import unquote
+
+import untangle
 
 
 class Series(TypedDict):
-    id: str
+    series_id: str
     name: str
     metadata_title: str
     oneshot: bool
@@ -101,7 +106,7 @@ def get_metadata_title(series_id: str, cur: sqlite3.Cursor) -> str:
 def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
     """Retrieve the release year for a series.
 
-    If the series is a oneshot, extracts the year from the series name.
+    If the series is an oneshot, extracts the year from the series name.
     Otherwise, attempts to get the release year from the first issue's metadata.
     If no first issue is found, guesses the year from the series name and prompts the user for manual input.
 
@@ -120,7 +125,7 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         FROM book_metadata bm
         JOIN book b ON bm.book_id = b.id
         JOIN series s ON b.series_id = s.id
-        WHERE bm.number = 1 AND s.id = "{series["id"]}"
+        WHERE bm.number = 1 AND s.id = "{series["series_id"]}"
         '''
     )
     # TypeError is raised if no issue is numbered 1 in the series
@@ -128,7 +133,7 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         release_date = cur.execute(sql_cmd).fetchone()[0]
     except TypeError:
         # Guess the year from the series name if no first issue is found
-        name = get_name(series["id"], cur)
+        name = get_name(series["series_id"], cur)
         match = re.search(r'\((\d{4})\)', name)
         year = match.group(1)
         response = input(
@@ -140,7 +145,7 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
 
 def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
     s: Series = {
-        "id": series_id,
+        "series_id": series_id,
         "name": get_name(series_id, cur),
         "metadata_title": get_metadata_title(series_id, cur),
         "oneshot": get_oneshot(series_id, cur),
@@ -179,7 +184,7 @@ def korrect(komga_db_path: str, komga_backup: str) -> None:
             f'''
             UPDATE series_metadata
             SET title = '{title}'
-            WHERE series_id is "{s["id"]}"
+            WHERE series_id is "{s["series_id"]}"
             '''
         )
         print(f"Updating series {s["metadata_title"]} ({s["name"]}) to {title}")
