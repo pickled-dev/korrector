@@ -32,6 +32,7 @@ def create_series_metadata_table(cur: sqlite3.Cursor) -> None:
         """
         CREATE TABLE SERIES_METADATA (
           TITLE VARCHAR NOT NULL,
+          TITLE_LOCK boolean NOT NULL DEFAULT 0,
           SERIES_ID VARCHAR NOT NULL PRIMARY KEY
         );
         """)

@@ -63,18 +63,18 @@ def make_series(series_id=TEST_SERIES_ID,
     }
 
 
-def insert_series(series, cur, number="1", date: str | None = "1999-01-01"):
+def insert_series(series, cur, number="1", date: str | None = "1999-01-01") -> None:
     cur.execute(
         "INSERT INTO SERIES (ID, NAME, oneshot) VALUES (?, ?, ?)",
         (series["series_id"], series["name"], series["oneshot"])
     )
     cur.execute(
-        "INSERT INTO SERIES_METADATA (TITLE, SERIES_ID) VALUES (?, ?)",
-        (series["metadata_title"], series["series_id"])
+        "INSERT INTO SERIES_METADATA (TITLE, TITLE_LOCK, SERIES_ID) VALUES (?, ?, ?)",
+        (series["metadata_title"], False, series["series_id"])
     )
     cur.execute(
         "INSERT INTO BOOK (ID, URL, SERIES_ID) VALUES (?, ?, ?)",
-        (TEST_BOOK_ID, "file://test/dir/", series["series_id"])
+        (TEST_BOOK_ID, "file://test_assets/test.cbz", series["series_id"])
     )
     cur.execute(
         "INSERT INTO BOOK_METADATA (NUMBER, RELEASE_DATE, TITLE, BOOK_ID) VALUES (?, ?, ?, ?)",
@@ -145,11 +145,11 @@ def test_get_korrection_oneshot():
     con, cur = test_db.make_db()
     series = make_series(name="Test Title v1 #001 (1999)", title="Test Title v1 #001 (1999)", oneshot=True)
     insert_series(series, cur, date=None)
-    result = korrector.make_sql_korrection_oneshot(series["series_id"], cur)
+    result = korrector.make_sql_korrection_oneshot(series["series_id"], cur, "")
     expected = korrector.format_sql(
         f"""
         UPDATE series_metadata
-        SET title = 'Test Title (1999)'
+        SET title = 'Test Series (1999)'
         WHERE series_id is "{series["series_id"]}"
         """
     )
