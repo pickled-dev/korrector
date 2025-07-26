@@ -20,7 +20,7 @@ class Series(TypedDict):
 
 
 def format_sql(sql_cmd: str) -> str:
-    """Format a SQL command into a one line string so it can be viewed and copied in debugger.
+    """Format SQL command into a one-line string so it can be viewed and copied in a debugger.
 
     Replaces all consecutive whitespace characters with a single space, and
     removes any leading or trailing whitespace.
@@ -183,6 +183,7 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     metadata_title = get_metadata_title(series_id, cur)
     # skip series that already have the year in the title
     if metadata_title and "(" in metadata_title and ")" in metadata_title:
+        print(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
         return None
     try:
         series = get_series(series_id, cur)
@@ -192,7 +193,7 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = re.sub(r"'", r"''", title)
-    print(f"Updating series {series["metadata_title"]} ({series["name"]}) to {title}")
+    print(f"[{series["name"]}] ({series["metadata_title"]}) -> ({title})")
     return format_sql(
         f'''
         UPDATE series_metadata
@@ -261,17 +262,21 @@ def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str)
         str | None: The new title if found, otherwise None.
     """
     if get_locked(series_id, cur):
+        print(f"{get_name(series_id, cur)} is locked by user.")
         return None
     series_path = get_url(series_id, cur)
-    path = re.sub(r'file://', komga_prefix, unquote(series_path))
+    # FIXME: this regex will mean this only works with my specific docker/directory setup
+    path = re.sub(r'file://?data', "", unquote(series_path))
     path = Path(komga_prefix + path)
     # extract ComicInfo.xml to a temporary directory
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         if not path.exists():
+            print(f"{get_name(series_id, cur)} cannot be found at {str(path)}")
             return None
         with zipfile.ZipFile(path, 'r') as zf:
             if "ComicInfo.xml" not in zf.namelist():
+                print({f"{get_name(series_id, cur)} does not have a ComicInfo.xml."})
                 return None
             zf.extract("ComicInfo.xml", tmp_path)
             info_path = Path(tmp_path / "ComicInfo.xml")
@@ -300,8 +305,9 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
         return None
     title = get_title_comic_info(series_id, cur, komga_prefix)
     if not title or title == series["metadata_title"]:
+        print(f"{get_name(series_id, cur)} is already correct [{series["metadata_title"]}]")
         return None
-    print(f"Updating series {series["metadata_title"]} ({series["name"]}) to {title}")
+    print(f"[{series["name"]}] ({series["metadata_title"]}) -> ({title})")
     return format_sql(
         f'''
         UPDATE series_metadata
@@ -311,7 +317,7 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
     )
 
 
-def korrect_all(komga_db: str, backup_path="", komga_prefix="") -> None:
+def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -> str:
     """Perform a batch correction of series titles in the Komga database.
 
     This function creates a backup of the Komga database, connects to it, and iterates over all series.
@@ -320,8 +326,9 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="") -> None:
 
     Args:
         komga_db (str): Path to the Komga database file.
-        backup (str, optional): Directory where the database backup will be stored.
+        backup_path (str, optional): Directory where the database backup will be stored.
         komga_prefix (str, optional): Prefix to use for file paths when extracting ComicInfo.xml. Defaults to "".
+        dry_run (bool, optional): If True, performs a dry run without making changes. Defaults to False.
 
     Returns:
         None
@@ -345,6 +352,7 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="") -> None:
             sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
-        cur.execute(sql_cmd)
-        con.commit()
+        if not dry_run:
+            cur.execute(sql_cmd)
+            con.commit()
     return "Korrection completed successfully."
