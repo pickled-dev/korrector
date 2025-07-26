@@ -1,3 +1,4 @@
+import logging
 import re
 import shutil
 import sqlite3
@@ -17,6 +18,9 @@ class Series(TypedDict):
     metadata_title: str
     oneshot: bool
     year: str
+
+
+logger = logging.getLogger(__name__)
 
 
 def format_sql(sql_cmd: str) -> str:
@@ -171,7 +175,7 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     """Generate an SQL update statement to correct the title of a series by appending the release year.
 
     Skips series that already have the year in the title. If the year cannot be determined, the function
-    prints a message and returns None.
+    logs a message and returns None.
 
     Args:
         series_id (str): The id of the series to update.
@@ -183,17 +187,18 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     metadata_title = get_metadata_title(series_id, cur)
     # skip series that already have the year in the title
     if metadata_title and "(" in metadata_title and ")" in metadata_title:
-        print(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
+        logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
         return None
     try:
         series = get_series(series_id, cur)
     except AttributeError:
-        print(f"No year found in the name of {metadata_title}. Skipping.")
+        logger.debug(f"No year found in the name of {metadata_title}. Skipping.")
         return None
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = re.sub(r"'", r"''", title)
-    print(f"[{series["name"]}] ({series["metadata_title"]}) -> ({title})")
+    logger.debug(f"[{series["name"]}]")
+    logger.info(f"({series["metadata_title"]}) -> ({title})")
     return format_sql(
         f'''
         UPDATE series_metadata
@@ -262,7 +267,7 @@ def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str)
         str | None: The new title if found, otherwise None.
     """
     if get_locked(series_id, cur):
-        print(f"{get_name(series_id, cur)} is locked by user.")
+        logger.debug(f"{get_name(series_id, cur)} is locked by user.")
         return None
     series_path = get_url(series_id, cur)
     # FIXME: this regex will mean this only works with my specific docker/directory setup
@@ -272,11 +277,11 @@ def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str)
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         if not path.exists():
-            print(f"{get_name(series_id, cur)} cannot be found at {str(path)}")
+            logger.info(f"\033[91m{get_name(series_id, cur)} cannot be found at {str(path)}\033[0m")
             return None
         with zipfile.ZipFile(path, 'r') as zf:
             if "ComicInfo.xml" not in zf.namelist():
-                print({f"{get_name(series_id, cur)} does not have a ComicInfo.xml."})
+                logger.info(f"\033[91m{get_name(series_id, cur)} does not have a ComicInfo.xml \033[0m")
                 return None
             zf.extract("ComicInfo.xml", tmp_path)
             info_path = Path(tmp_path / "ComicInfo.xml")
@@ -305,9 +310,11 @@ def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefi
         return None
     title = get_title_comic_info(series_id, cur, komga_prefix)
     if not title or title == series["metadata_title"]:
-        print(f"{get_name(series_id, cur)} is already correct [{series["metadata_title"]}]")
+        logger.debug(f"{get_name(series_id, cur)} is already correct [{series["metadata_title"]}]")
         return None
-    print(f"[{series["name"]}] ({series["metadata_title"]}) -> ({title})")
+    logger.debug(f"[{series["name"]}]")
+    logger.info(f"({series["metadata_title"]}) -> ({title})")
+    title = re.sub(r"'", r"''", title)
     return format_sql(
         f'''
         UPDATE series_metadata
@@ -335,7 +342,7 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -
     """
     if backup_path:
         backup(komga_db, backup_path)
-    con = sqlite3.connect(f"{komga_db}")
+    con = sqlite3.connect(f"{komga_db}", timeout=10)
     cur = con.cursor()
     sql_cmd = format_sql(
         """
@@ -347,12 +354,12 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -
     for series_id in series_ids:
         series_id = series_id[0]
         if get_oneshot(series_id, cur):
-            make_sql_korrection_oneshot(series_id, cur, komga_prefix)
+            sql_cmd = make_sql_korrection_oneshot(series_id, cur, komga_prefix)
         else:
             sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
-        if not dry_run:
-            cur.execute(sql_cmd)
-            con.commit()
+        if not dry_run: cur.execute(sql_cmd)
+    if not dry_run:
+        con.commit()
     return "Korrection completed successfully."
