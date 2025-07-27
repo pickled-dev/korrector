@@ -109,18 +109,24 @@ def get_metadata_title(series_id: str, cur: sqlite3.Cursor) -> str:
 
 
 def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
-    """Retrieve the release year for a series.
+    """Determines the release year for a given comic series.
 
-    If the series is an oneshot, extracts the year from the series name.
-    Otherwise, attempts to get the release year from the first issue's metadata.
-    If no first issue is found, guesses the year from the series name and prompts the user for manual input.
+    If the series is marked as a one-shot, attempts to extract the year from the series name using a 4-digit pattern in parentheses.
+
+    For non-oneshot series:
+    - Tries to find the release year from the first issue (issue number '1') in the `book_metadata` table via a SQL join.
+    - If no issue #1 is found or lacks a release date, attempts to extract the year from the series name.
+    - If still unsuccessful, prompts the user to manually enter a year, offering the extracted year (if found) as the default.
 
     Args:
-        series (Series): The series information dictionary.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
+        series (Series): Dictionary containing series information (must include keys like "name", "series_id", "metadata_title", "oneshot").
+        cur (sqlite3.Cursor): Active database cursor to execute SQL queries.
 
     Returns:
-        str: The release year as a string.
+        str: A 4-digit string representing the release year.
+
+    Raises:
+        ValueError: If no year can be determined from the series name or database.
     """
     if series["oneshot"]:
         match = re.search(r'\((\d{4})\)', series["name"])
@@ -179,23 +185,30 @@ def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
 
 
 def get_sql_korrection(series: Series) -> str | None:
-    """Generate an SQL update statement to correct the title of a series by appending the release year.
+    """Generate an SQL UPDATE statement to correct the title of a series by appending the year.
 
-    Skips series that already have the year in the title. If the year cannot be determined, the function
-    logs a message and returns None.
+    Raises a ValueError if:
+    - The series title already contains a year in parentheses, indicating it is "correct".
+    - The series is marked as locked by the user, meaning no changes should be made.
+
+    The function escapes single quotes in the new title for safe SQL usage.
 
     Args:
-        series (Series): The Series dict of the series to update.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
+        series (Series): A dictionary representing a series with keys including:
+            - "metadata_title": the current title of the series,
+            - "year": the year to append,
+            - "name": the display name for error messages,
+            - "locked": a boolean indicating if the series is locked,
+            - "series_id": the unique identifier used in the database.
 
     Returns:
-        str | None: The SQL update statement if a correction is needed, otherwise None.
-    """
+        str: A formatted SQL UPDATE command string to update the series title.
 
-    # raise error when series already has the year in the title
+    Raises:
+        ValueError: If the series is already considered correct or locked.
+    """
     if series["metadata_title"] and "(" in series["metadata_title"] and ")" in series["metadata_title"]:
         raise ValueError(f"{series["name"]} is already correct [{series["metadata_title"]}]")
-    # raise error if series the user has manually locked
     if series["locked"]:
         raise ValueError(f"{series["name"]} is manually locked by user.")
     title = f"{series["metadata_title"]} ({series["year"]})"
