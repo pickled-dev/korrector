@@ -223,11 +223,10 @@ def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
     return cur.execute(sql_cmd).fetchone()[0]
 
 
-def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str, dry_run: bool):
+def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, dry_run: bool):
     series_path = get_url(series_id, cur)
-    # FIXME: this regex will mean this only works with my specific docker/directory setup
     path = re.sub(r'file://?data', "", unquote(series_path))
-    path = Path(komga_prefix + path)
+    path = Path(path)
     # extract ComicInfo.xml to a temporary directory
     if not path.exists():
         logger.info(f"\033[91m{get_name(series_id, cur)} cannot be found at {str(path)}\033[0m")
@@ -294,17 +293,16 @@ def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
     return cur.execute(sql_cmd).fetchone()[0]
 
 
-def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -> str:
+def korrect_all(komga_db: str, backup_path="", dry_run=False) -> str:
     """Perform a batch correction of series titles in the Komga database.
 
     This function creates a backup of the Komga database, connects to it, and iterates over all series.
-    For each series, it determines if it is a oneshot or not, generates the appropriate SQL correction
+    For each series, it determines if it is an oneshot or not, generates the appropriate SQL correction
     statement, and updates the series title in the database if needed.
 
     Args:
         komga_db (str): Path to the Komga database file.
         backup_path (str, optional): Directory where the database backup will be stored.
-        komga_prefix (str, optional): Prefix to use for file paths when extracting ComicInfo.xml. Defaults to "".
         dry_run (bool, optional): If True, performs a dry run without making changes. Defaults to False.
 
     Returns:
@@ -324,7 +322,7 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -
     for series_id in series_ids:
         series_id = series_id[0]
         if get_oneshot(series_id, cur):
-            korrect_comic_info(series_id, cur, komga_prefix, dry_run)
+            korrect_comic_info(series_id, cur, dry_run)
             continue
         else:
             metadata_title = get_metadata_title(series_id, cur)
