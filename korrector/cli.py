@@ -2,7 +2,7 @@ import argparse
 import logging
 import sys
 
-from korrector import korrect_all
+from korrector import korrect_database
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def main():
         format='%(message)s'
     )
 
-    result = korrect_all(args.db_path, args.backup, args.dry_run)
+    result = korrect_database(args.db_path, args.backup, args.dry_run)
     print(result)
 
 

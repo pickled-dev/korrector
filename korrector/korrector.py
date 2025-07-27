@@ -203,6 +203,75 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     )
 
 
+def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
+    """get the TITLE_LOCK field of a series
+
+    when a user manually edits the metadata_title of a series in the komga web interface,
+    it is marked as locked in the SERIES_METADATA table to prevent automatic corrections.
+    0 is not locked, 1 is locked.
+
+    Args:
+        series_id (str): The id of the series to check.
+        cur (sqlite3.Cursor): The database cursor to use for queries.
+    Returns:
+        bool: True if the series is locked, False otherwise.
+    """
+    sql_cmd = format_sql(
+        f'''
+        SELECT title_lock
+        FROM series_metadata
+        WHERE series_id is '{series_id}'
+        '''
+    )
+    return cur.execute(sql_cmd).fetchone()[0]
+
+
+def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
+    """Perform a batch correction of series titles in the Komga database.
+
+    This function creates a backup of the Komga database, connects to it, and iterates over all series.
+    For each series, it determines if it is an oneshot or not, generates the appropriate SQL correction
+    statement, and updates the series title in the database if needed.
+
+    Args:
+        komga_db (str): Path to the Komga database file.
+        backup_path (str, optional): Directory where the database backup will be stored.
+        dry_run (bool, optional): If True, performs a dry run without making changes. Defaults to False.
+
+    Returns:
+        None
+    """
+    if backup_path:
+        backup(komga_db, backup_path)
+    con = sqlite3.connect(f"{komga_db}", timeout=10)
+    cur = con.cursor()
+    sql_cmd = format_sql(
+        """
+        SELECT id
+        FROM series
+        """
+    )
+    series_ids = cur.execute(sql_cmd).fetchall()
+    for series_id in series_ids:
+        series_id = series_id[0]
+        metadata_title = get_metadata_title(series_id, cur)
+        # skip series that already have the year in the title
+        if metadata_title and "(" in metadata_title and ")" in metadata_title:
+            logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
+            continue
+        # skip series the user has manually locked
+        if get_locked(series_id):
+            logger.debug(f"{get_name(series_id)} is manually locked by user.")
+            continue
+        sql_cmd = make_sql_korrection(series_id, cur)
+        if sql_cmd is None:
+            continue
+        if not dry_run: cur.execute(sql_cmd)
+    if not dry_run:
+        con.commit()
+    return "Korrection completed successfully."
+
+
 def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
     """Retrieve the URL of a series given its id.
 
@@ -270,70 +339,17 @@ def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, dry_run: bool):
         cbz.write(new_cbz_data.getvalue())
 
 
-def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
-    """get the TITLE_LOCK field of a series
-
-    when a user manually edits the metadata_title of a series in the komga web interface,
-    it is marked as locked in the SERIES_METADATA table to prevent automatic corrections.
-    0 is not locked, 1 is locked.
-
-    Args:
-        series_id (str): The id of the series to check.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        bool: True if the series is locked, False otherwise.
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT title_lock
-        FROM series_metadata
-        WHERE series_id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def korrect_all(komga_db: str, backup_path="", dry_run=False) -> str:
-    """Perform a batch correction of series titles in the Komga database.
-
-    This function creates a backup of the Komga database, connects to it, and iterates over all series.
-    For each series, it determines if it is an oneshot or not, generates the appropriate SQL correction
-    statement, and updates the series title in the database if needed.
-
-    Args:
-        komga_db (str): Path to the Komga database file.
-        backup_path (str, optional): Directory where the database backup will be stored.
-        dry_run (bool, optional): If True, performs a dry run without making changes. Defaults to False.
-
-    Returns:
-        None
-    """
-    if backup_path:
-        backup(komga_db, backup_path)
-    con = sqlite3.connect(f"{komga_db}", timeout=10)
+def korrect_oneshots(komga_db: str, dry_run=False) -> None:
+    con = sqlite3.connect(f"{komga_db}")
     cur = con.cursor()
     sql_cmd = format_sql(
-        """
+        f'''
         SELECT id
         FROM series
-        """
+        WHERE oneshot = 1
+        '''
     )
     series_ids = cur.execute(sql_cmd).fetchall()
     for series_id in series_ids:
         series_id = series_id[0]
-        if get_oneshot(series_id, cur):
-            korrect_comic_info(series_id, cur, dry_run)
-            continue
-        else:
-            metadata_title = get_metadata_title(series_id, cur)
-            # skip series that already have the year in the title
-            if metadata_title and "(" in metadata_title and ")" in metadata_title:
-                logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
-                continue
-            sql_cmd = make_sql_korrection(series_id, cur)
-        if sql_cmd is None:
-            continue
-        if not dry_run: cur.execute(sql_cmd)
-    if not dry_run:
-        con.commit()
-    return "Korrection completed successfully."
+        korrect_comic_info(series_id, cur, dry_run)
