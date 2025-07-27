@@ -267,15 +267,14 @@ def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
         backup(komga_db, backup_path)
     con = sqlite3.connect(f"{komga_db}", timeout=10)
     cur = con.cursor()
-    sql_cmd = format_sql(
+    get_ids = format_sql(
         """
         SELECT id
         FROM series
         """
     )
-    series_ids = cur.execute(sql_cmd).fetchall()
+    series_ids = cur.execute(get_ids).fetchall()
     for series_id in series_ids:
-        sql_cmd = None
         series_id = series_id[0]
         try:
             series = get_series(series_id, cur)
@@ -283,11 +282,8 @@ def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
         except ValueError as e:
             logger.debug(f"{e} Skipping.")
             continue
-        if sql_cmd is None:
-            continue
         if not dry_run: cur.execute(sql_cmd)
-    if not dry_run:
-        con.commit()
+    if not dry_run: con.commit()
     return "Korrection completed successfully."
 
 
