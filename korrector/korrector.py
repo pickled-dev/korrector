@@ -1,15 +1,15 @@
+import io
 import logging
 import re
 import shutil
 import sqlite3
-import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 from urllib.parse import unquote
 
-import untangle
+from lxml import etree
 
 
 class Series(TypedDict):
@@ -184,16 +184,10 @@ def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
     Returns:
         str | None: The SQL update statement if a correction is needed, otherwise None.
     """
-    metadata_title = get_metadata_title(series_id, cur)
-    # skip series that already have the year in the title
-    if metadata_title and "(" in metadata_title and ")" in metadata_title:
-        logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
-        return None
     try:
         series = get_series(series_id, cur)
     except AttributeError:
-        logger.debug(f"No year found in the name of {metadata_title}. Skipping.")
-
+        logger.debug(f"No year found in the name of {get_name(series_id, cur)}. Skipping.")
         return None
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
@@ -229,6 +223,54 @@ def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
     return cur.execute(sql_cmd).fetchone()[0]
 
 
+def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str, dry_run: bool):
+    series_path = get_url(series_id, cur)
+    # FIXME: this regex will mean this only works with my specific docker/directory setup
+    path = re.sub(r'file://?data', "", unquote(series_path))
+    path = Path(komga_prefix + path)
+    # extract ComicInfo.xml to a temporary directory
+    if not path.exists():
+        logger.info(f"\033[91m{get_name(series_id, cur)} cannot be found at {str(path)}\033[0m")
+        return
+    with zipfile.ZipFile(path, 'r') as cbz:
+        if "ComicInfo.xml" not in cbz.namelist():
+            logger.info(f"\033[91m{get_name(series_id, cur)} does not have a ComicInfo.xml \033[0m")
+            return
+        with cbz.open("ComicInfo.xml") as xml_file:
+            tree = etree.parse(xml_file)
+            root = tree.getroot()
+        series_elem = root.find("Series")
+        title_elem = root.find("Title")
+        if title_elem is None:
+            title_elem = etree.Element("Title")
+            title_elem.text = series_elem.text
+            root.append(title_elem)
+            logger.info(f"Creating title field: {title_elem.text}")
+        elif title_elem.text == series_elem.text:
+            return
+        else:
+            logger.info(f"ComicInfo.xml: {title_elem.text} -> {series_elem.text}")
+        if dry_run:
+            return
+        title_elem.text = series_elem.text
+        cbz_contents = cbz.namelist()
+        # create a new XML file in memory
+        new_xml = etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="utf-8")
+        # create a new cbz in memory
+        new_cbz_data = io.BytesIO()
+        with zipfile.ZipFile(new_cbz_data, "w") as new_cbz:
+            # write all contents of old cbz except ComicInfo
+            for item in cbz_contents:
+                if item != "ComicInfo.xml":
+                    new_cbz.writestr(item, cbz.read(item))
+            # write new ComicInfo
+            new_cbz.writestr("ComicInfo.xml", new_xml)
+    logger.debug(f"Writing new CBZ")
+    # write over old cbz with cbz built in memory
+    with open(path, "wb") as cbz:
+        cbz.write(new_cbz_data.getvalue())
+
+
 def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
     """get the TITLE_LOCK field of a series
 
@@ -250,117 +292,6 @@ def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
         '''
     )
     return cur.execute(sql_cmd).fetchone()[0]
-
-
-def get_title_comic_info(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
-    """
-    Retrieve the title from ComicInfo.xml for a given series.
-
-    If the series is locked, returns None. Otherwise, extracts ComicInfo.xml from the series archive,
-    parses it, and constructs a new title using the series name and year from the XML.
-
-    Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-        komga_prefix (str): The prefix to use for file paths.
-
-    Returns:
-        str | None: The new title if found, otherwise None.
-    """
-    if get_locked(series_id, cur):
-        logger.debug(f"{get_name(series_id, cur)} is locked by user.")
-        return None
-    series_path = get_url(series_id, cur)
-    # FIXME: this regex will mean this only works with my specific docker/directory setup
-    path = re.sub(r'file://?data', "", unquote(series_path))
-    path = Path(komga_prefix + path)
-    # extract ComicInfo.xml to a temporary directory
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        if not path.exists():
-            logger.info(f"\033[91m{get_name(series_id, cur)} cannot be found at {str(path)}\033[0m")
-            return None
-        with zipfile.ZipFile(path, 'r') as zf:
-            if "ComicInfo.xml" not in zf.namelist():
-                logger.info(f"\033[91m{get_name(series_id, cur)} does not have a ComicInfo.xml \033[0m")
-                return None
-            zf.extract("ComicInfo.xml", tmp_path)
-            info_path = Path(tmp_path / "ComicInfo.xml")
-            info = untangle.parse(str(info_path)).ComicInfo
-            new_title = f'{info.Series.cdata} ({info.Year.cdata})'
-    return new_title
-
-
-def get_oneshot_book_title(series_id: str, cur: sqlite3.Cursor) -> str:
-    """Retrieves the TITLE from BOOK_METADATA
-
-    As one shots only ever have a single book, we only need a series id to find the one entry
-    in BOOK_METADATA
-
-    Args:
-        series_id (str): The id of the series to retrieve the book title
-        cur (sqlite3.Cursor): The database cursor to use for query
-
-    Returns:
-         str: The title of the oneshot in the series
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT bm.title
-        FROM book_metadata bm
-        JOIN book b ON bm.book_id = b.id
-        JOIN series s ON b.series_id = s.id
-        WHERE s.id IS '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def make_sql_korrection_oneshot(series_id: str, cur: sqlite3.Cursor, komga_prefix: str) -> str | None:
-    """Generate an SQL update statement to correct the title of a oneshot series using ComicInfo.xml data.
-
-    Skips series that already have the correct title or if the title cannot be determined.
-    Returns None if the title is already correct or cannot be found.
-
-    Args:
-        series_id (str): The id of the series to update.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-        komga_prefix (str): The prefix to use for file paths.
-
-    Returns:
-        str | None: The SQL update statement if a correction is needed, otherwise None.
-    """
-    try:
-        series = get_series(series_id, cur)
-    except ValueError:
-        return None
-    title = get_title_comic_info(series_id, cur, komga_prefix)
-    if not title or title == get_oneshot_book_title(series_id, cur):
-        logger.debug(f"{get_name(series_id, cur)} is already correct [{series["metadata_title"]}]")
-        return None
-    logger.debug(f"[{series["name"]}]")
-    logger.info(f"({series["metadata_title"]}) -> ({title})")
-    title = re.sub(r"'", r"''", title)
-    sql_cmd = format_sql(
-        f'''
-        UPDATE series_metadata
-        SET title = '{title}'
-        WHERE series_id is '{series["series_id"]}'
-        '''
-    )
-    cur.execute(sql_cmd)
-    return format_sql(
-        f'''
-        UPDATE book_metadata
-        SET book_metadata.title = '{title}'
-        WHERE book_id IN (
-            SELECT bm.book_id
-            JOIN book b ON bm.book_id = b.id
-            JOIN series s ON b.series_id = s.id
-            WHERE s.id = '{series_id}
-        )
-        '''
-)
 
 
 def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -> str:
@@ -393,8 +324,14 @@ def korrect_all(komga_db: str, backup_path="", komga_prefix="", dry_run=False) -
     for series_id in series_ids:
         series_id = series_id[0]
         if get_oneshot(series_id, cur):
-            sql_cmd = make_sql_korrection_oneshot(series_id, cur, komga_prefix)
+            korrect_comic_info(series_id, cur, komga_prefix, dry_run)
+            continue
         else:
+            metadata_title = get_metadata_title(series_id, cur)
+            # skip series that already have the year in the title
+            if metadata_title and "(" in metadata_title and ")" in metadata_title:
+                logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
+                continue
             sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
