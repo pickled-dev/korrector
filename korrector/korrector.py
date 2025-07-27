@@ -18,6 +18,7 @@ class Series(TypedDict):
     metadata_title: str
     oneshot: bool
     year: str
+    locked: bool
 
 
 logger = logging.getLogger(__name__)
@@ -135,19 +136,21 @@ def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
         WHERE bm.number = '1' AND s.id = '{series["series_id"]}'
         '''
     )
-    # TypeError is raised if no issue is numbered 1 in the series
-    try:
-        release_date = cur.execute(sql_cmd).fetchone()[0]
-    except TypeError:
-        # Guess the year from the series name if no first issue is found
-        name = get_name(series["series_id"], cur)
-        match = re.search(r'\((\d{4})\)', name)
-        year = match.group(1)
-        response = input(
-            f"No first issue found for {series["metadata_title"]}. Enter year manually (Default is {year}): "
-        )
-        return response if response else year
-    return release_date.split('-')[0]
+    release_date = cur.execute(sql_cmd).fetchone()
+    # return year of issue numbered 1 if available
+    if release_date and release_date[0]:
+        return release_date[0].split('-')[0]
+    # Guess the year from the series name if no first issue is found
+    name = get_name(series["series_id"], cur)
+    match = re.search(r'\((\d{4})\)', name)
+    if match is None:
+        raise ValueError(f"No year found in the name of {series["series_id"]}")
+    year = match.group(1)
+    # prompt user offering guess year as default
+    response = input(
+        f"No first issue found for {series["metadata_title"]}. Enter year manually (Default is {year}): "
+    )
+    return response if response else year
 
 
 def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
@@ -166,29 +169,35 @@ def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
         "metadata_title": get_metadata_title(series_id, cur),
         "oneshot": get_oneshot(series_id, cur),
         "year": "",
+        "locked": get_locked(series_id, cur)
     }
-    s["year"] = get_release_year(s, cur)
+    try:
+        s["year"] = get_release_year(s, cur)
+    except ValueError as e:
+        raise e
     return s
 
 
-def make_sql_korrection(series_id: str, cur: sqlite3.Cursor) -> str | None:
+def get_sql_korrection(series: Series) -> str | None:
     """Generate an SQL update statement to correct the title of a series by appending the release year.
 
     Skips series that already have the year in the title. If the year cannot be determined, the function
     logs a message and returns None.
 
     Args:
-        series_id (str): The id of the series to update.
+        series (Series): The Series dict of the series to update.
         cur (sqlite3.Cursor): The database cursor to use for queries.
 
     Returns:
         str | None: The SQL update statement if a correction is needed, otherwise None.
     """
-    try:
-        series = get_series(series_id, cur)
-    except AttributeError:
-        logger.debug(f"No year found in the name of {get_name(series_id, cur)}. Skipping.")
-        return None
+
+    # raise error when series already has the year in the title
+    if series["metadata_title"] and "(" in series["metadata_title"] and ")" in series["metadata_title"]:
+        raise ValueError(f"{series["name"]} is already correct [{series["metadata_title"]}]")
+    # raise error if series the user has manually locked
+    if series["locked"]:
+        raise ValueError(f"{series["name"]} is manually locked by user.")
     title = f"{series["metadata_title"]} ({series["year"]})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = re.sub(r"'", r"''", title)
@@ -253,17 +262,14 @@ def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
     )
     series_ids = cur.execute(sql_cmd).fetchall()
     for series_id in series_ids:
+        sql_cmd = None
         series_id = series_id[0]
-        metadata_title = get_metadata_title(series_id, cur)
-        # skip series that already have the year in the title
-        if metadata_title and "(" in metadata_title and ")" in metadata_title:
-            logger.debug(f"{get_name(series_id, cur)} is already correct [{metadata_title}")
+        try:
+            series = get_series(series_id, cur)
+            sql_cmd = get_sql_korrection(series)
+        except ValueError as e:
+            logger.debug(f"{e} Skipping.")
             continue
-        # skip series the user has manually locked
-        if get_locked(series_id):
-            logger.debug(f"{get_name(series_id)} is manually locked by user.")
-            continue
-        sql_cmd = make_sql_korrection(series_id, cur)
         if sql_cmd is None:
             continue
         if not dry_run: cur.execute(sql_cmd)
