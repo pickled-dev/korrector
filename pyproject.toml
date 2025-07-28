@@ -10,7 +10,8 @@ requires-python = ">=3.13,<4.0"
 dependencies = [
     "poetry-core (>=2.0.0,<3.0.0)",
     "pytest (==8.4.1)",
-    "lxml (>=6.0.0,<7.0.0)"
+    "lxml (>=6.0.0,<7.0.0)",
+    "sqlalchemy (>=2.0.41,<3.0.0)"
 ]
 
 
@@ -20,3 +21,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 korrector = "korrector.cli:main"
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+

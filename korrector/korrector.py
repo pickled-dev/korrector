@@ -2,40 +2,19 @@ import io
 import logging
 import re
 import shutil
-import sqlite3
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict
+
 from urllib.parse import unquote
 
+from sqlalchemy import create_engine
+import sqlalchemy.orm as alch
 from lxml import etree
 
-
-class Series(TypedDict):
-    series_id: str
-    name: str
-    metadata_title: str
-    oneshot: bool
-    year: str
-    locked: bool
-
+from korrector.komga_orm import Book, Series, SeriesMetadata, BookMetadata
 
 logger = logging.getLogger(__name__)
-
-
-def format_sql(sql_cmd: str) -> str:
-    """Format SQL command into a one-line string so it can be viewed and copied in a debugger.
-
-    Replaces all consecutive whitespace characters with a single space, and
-    removes any leading or trailing whitespace.
-
-    Args:
-        sql_cmd: The SQL command string to format.
-    Returns:
-        A formatted string.
-    """
-    return " ".join(sql_cmd.split())
 
 
 def backup(komga_db_path: str, komga_backup: str) -> None:
@@ -51,273 +30,124 @@ def backup(komga_db_path: str, komga_backup: str) -> None:
     shutil.copy(src, dest)
 
 
-def get_name(series_id: str, cur: sqlite3.Cursor) -> str:
-    """Retrieve the name of a series given its id.
+def get_release_year(series: Series, session: alch.Session) -> str:
+    """Get the release year for a series.
+
+    If the first issue is available, it will return the release year of that issue.
+    If the first issue is not available, it will attempt to guess the year from the series name.
+    If no year can be found, it will prompt the user to enter the year manually.
 
     Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        str: The name of the series.
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT name
-        FROM series
-        WHERE id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def get_oneshot(series_id: str, cur: sqlite3.Cursor) -> bool:
-    """Retrieve whether a series is an oneshot given its id.
-
-    Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        bool: True if the series is an oneshot, False otherwise.
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT oneshot
-        FROM series
-        WHERE id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def get_metadata_title(series_id: str, cur: sqlite3.Cursor) -> str:
-    """Retrieve the metadata title of a series given its id.
-
-    Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        str: The metadata title of the series.
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT TITLE
-        FROM series_metadata
-        WHERE series_id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def get_release_year(series: Series, cur: sqlite3.Cursor) -> str:
-    """Determines the release year for a given comic series.
-
-    If the series is marked as a one-shot, attempts to extract the year from the series name using a 4-digit pattern in parentheses.
-
-    For non-oneshot series:
-    - Tries to find the release year from the first issue (issue number '1') in the `book_metadata` table via a SQL join.
-    - If no issue #1 is found or lacks a release date, attempts to extract the year from the series name.
-    - If still unsuccessful, prompts the user to manually enter a year, offering the extracted year (if found) as the default.
-
-    Args:
-        series (Series): Dictionary containing series information (must include keys like "name", "series_id", "metadata_title", "oneshot").
-        cur (sqlite3.Cursor): Active database cursor to execute SQL queries.
+        series (Series): The series to get the release year for.
+        session (alch.Session): The database session.
 
     Returns:
-        str: A 4-digit string representing the release year.
+        str: The release year as a string.
 
     Raises:
-        ValueError: If no year can be determined from the series name or database.
+        ValueError: If no year can be found.
     """
-    if series["oneshot"]:
-        match = re.search(r'\((\d{4})\)', series["name"])
-        if not match:
-            raise ValueError(f"No year found in name of {series['name']}.")
-        return match.group(1)
-    sql_cmd = format_sql(
-        f'''
-        SELECT bm.release_date
-        FROM book_metadata bm
-        JOIN book b ON bm.book_id = b.id
-        JOIN series s ON b.series_id = s.id
-        WHERE bm.number = '1' AND s.id = '{series["series_id"]}'
-        '''
-    )
-    release_date = cur.execute(sql_cmd).fetchone()
     # return year of issue numbered 1 if available
-    if release_date and release_date[0]:
-        return release_date[0].split('-')[0]
+    first = series.books.filter_by(number="1").first()
+    if first is not None:
+        metadata_b = session.query(BookMetadata).filter_by(book_id=first.id).first()
+        release_date = metadata_b.release_date
+        return release_date[0].split("-")[0]
+
     # Guess the year from the series name if no first issue is found
-    name = get_name(series["series_id"], cur)
-    match = re.search(r'\((\d{4})\)', name)
+    metadata_s = session.query(SeriesMetadata).filter_by(id=series.series_id).first()
+    match = re.search(r"\((\d{4})\)", metadata_s.title)
     if match is None:
-        raise ValueError(f"No year found in the name of {series["series_id"]}")
+        raise ValueError(f"No first issue, or year, found in {series.name}")
     year = match.group(1)
+
     # prompt user offering guess year as default
     response = input(
-        f"No first issue found for {series["metadata_title"]}. Enter year manually (Default is {year}): "
+        f"No first issue found for {series.name}. Enter year manually (Default: {year}): "
     )
     return response if response else year
 
 
-def get_series(series_id: str, cur: sqlite3.Cursor) -> Series:
-    """Construct a Series dictionary with information about a series.
+def make_korrection(series: Series, session: alch.Session) -> None:
+    """Alter a series in the komga database to make it easier to import.
+
+    The desired format for the TITLE field in the SERIES_METADTA tablse is:
+    "Title (YYYY)"
 
     Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-
-    Returns:
-        Series: A dictionary containing series_id, name, metadata_title, oneshot, and year.
-    """
-    s: Series = {
-        "series_id": series_id,
-        "name": get_name(series_id, cur),
-        "metadata_title": get_metadata_title(series_id, cur),
-        "oneshot": get_oneshot(series_id, cur),
-        "year": "",
-        "locked": get_locked(series_id, cur)
-    }
-    try:
-        s["year"] = get_release_year(s, cur)
-    except ValueError as e:
-        raise e
-    return s
-
-
-def get_sql_korrection(series: Series) -> str | None:
-    """Generate an SQL UPDATE statement to correct the title of a series by appending the year.
-
-    Raises a ValueError if:
-    - The series title already contains a year in parentheses, indicating it is "correct".
-    - The series is marked as locked by the user, meaning no changes should be made.
-
-    The function escapes single quotes in the new title for safe SQL usage.
-
-    Args:
-        series (Series): A dictionary representing a series with keys including:
-            - "metadata_title": the current title of the series,
-            - "year": the year to append,
-            - "name": the display name for error messages,
-            - "locked": a boolean indicating if the series is locked,
-            - "series_id": the unique identifier used in the database.
-
-    Returns:
-        str: A formatted SQL UPDATE command string to update the series title.
+        series (Series): The series to make the korrection for.
+        session (alch.Session): The database session.
 
     Raises:
-        ValueError: If the series is already considered correct or locked.
+        ValueError: If the series is already correct, or if the series is locked.
     """
-    if series["metadata_title"] and "(" in series["metadata_title"] and ")" in series["metadata_title"]:
-        raise ValueError(f"{series["name"]} is already correct [{series["metadata_title"]}]")
-    if series["locked"]:
-        raise ValueError(f"{series["name"]} is manually locked by user.")
-    title = f"{series["metadata_title"]} ({series["year"]})"
+    series_meta = session.query(SeriesMetadata).filter_by(id=series.series_id).first()
+    meta_title = series_meta.title
+    if meta_title and "(" in meta_title and ")" in meta_title:
+        raise ValueError(f"{series.name} is already correct [{meta_title}]")
+    if series.locked:
+        raise ValueError(f"{series.name} is manually locked by user.")
+    title = f"{series.metadata_title} ({get_release_year(series, session)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = re.sub(r"'", r"''", title)
     logger.debug(f"[{series["name"]}]")
     logger.info(f"({series["metadata_title"]}) -> ({title})")
-    return format_sql(
-        f'''
-        UPDATE series_metadata
-        SET title = '{title}'
-        WHERE series_id is "{series["series_id"]}"
-        '''
-    )
-
-
-def get_locked(series_id: str, cur: sqlite3.Cursor) -> bool:
-    """get the TITLE_LOCK field of a series
-
-    when a user manually edits the metadata_title of a series in the komga web interface,
-    it is marked as locked in the SERIES_METADATA table to prevent automatic corrections.
-    0 is not locked, 1 is locked.
-
-    Args:
-        series_id (str): The id of the series to check.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        bool: True if the series is locked, False otherwise.
-    """
-    sql_cmd = format_sql(
-        f'''
-        SELECT title_lock
-        FROM series_metadata
-        WHERE series_id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
+    series_meta.title = title
 
 
 def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
-    """Perform a batch correction of series titles in the Komga database.
-
-    This function creates a backup of the Komga database, connects to it, and iterates over all series.
-    For each series, it determines if it is an oneshot or not, generates the appropriate SQL correction
-    statement, and updates the series title in the database if needed.
+    """Read a Komga db, and alter the names of books in the db
 
     Args:
-        komga_db (str): Path to the Komga database file.
-        backup_path (str, optional): Directory where the database backup will be stored.
-        dry_run (bool, optional): If True, performs a dry run without making changes. Defaults to False.
+        komga_db (str): The path to the Komga database file.
+        backup_path (str, optional): Path where a backup of the db should be stored.
+        dry_run (bool, optional): If True, no changes will be made to the db.
 
-    Returns:
-        None
+    Raises:
+        ValueError: If the series is already correct, or if the series is locked.
     """
+
     if backup_path:
         backup(komga_db, backup_path)
-    con = sqlite3.connect(f"{komga_db}", timeout=10)
-    cur = con.cursor()
-    get_ids = format_sql(
-        """
-        SELECT id
-        FROM series
-        """
-    )
-    series_ids = cur.execute(get_ids).fetchall()
-    for series_id in series_ids:
-        series_id = series_id[0]
-        try:
-            series = get_series(series_id, cur)
-            sql_cmd = get_sql_korrection(series)
-        except ValueError as e:
-            logger.debug(f"{e} Skipping.")
-            continue
-        if not dry_run: cur.execute(sql_cmd)
-    if not dry_run: con.commit()
+    engine = create_engine(f"sqlite:///{komga_db}")
+    Session = alch.sessionmaker(bind=engine)
+    with Session() as session:
+        all_series = session.query(Series).all()
+        for series in all_series:
+            try:
+                make_korrection(series, session)
+            except ValueError as e:
+                logger.debug(f"{e} Skipping.")
+                continue
+        if not dry_run:
+            session.commit()
     return "Korrection completed successfully."
 
 
-def get_url(series_id: str, cur: sqlite3.Cursor) -> str:
-    """Retrieve the URL of a series given its id.
+def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool):
+    """Extract the ComicInfo.xml of a one-shot and alter the title
+
+    Due to how Komga searches for one-shot series, updating their metadata in the db
+    is not sufficient to allow Komga to find them when importing a reading list.
+    The solution, instead, is to alter th ComicInfo.xml inside the cbz files to have
+    the correct titles. This is done by setting the <Title> element to be
+    "Title (YYYY)".
 
     Args:
-        series_id (str): The id of the series to retrieve.
-        cur (sqlite3.Cursor): The database cursor to use for queries.
-    Returns:
-        str: The URL of the series.
+        series (Series): The series to korrect.
+        session (alch.Session): The database session.
+        dry_run (bool): If True, no changes will be made to the db.
     """
-    sql_cmd = format_sql(
-        f'''
-        SELECT b.url
-        FROM book b
-        JOIN series s ON b.series_id=s.id
-        WHERE series_id is '{series_id}'
-        '''
-    )
-    return cur.execute(sql_cmd).fetchone()[0]
-
-
-def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, dry_run: bool):
-    series_path = get_url(series_id, cur)
-    path = re.sub(r'file://?data', "", unquote(series_path))
+    url = session.query(Book).filter_by(series.id).first().url
+    path = re.sub(r"file://?", "", unquote(url))
     path = Path(path)
     # extract ComicInfo.xml to a temporary directory
     if not path.exists():
-        logger.info(f"\033[91m{get_name(series_id, cur)} cannot be found at {str(path)}\033[0m")
+        logger.info(f"\033[91m{series.name} cannot be found at {str(path)}\033[0m")
         return
-    with zipfile.ZipFile(path, 'r') as cbz:
+    with zipfile.ZipFile(path, "r") as cbz:
         if "ComicInfo.xml" not in cbz.namelist():
-            logger.info(f"\033[91m{get_name(series_id, cur)} does not have a ComicInfo.xml \033[0m")
+            logger.info(f"\033[91m{series.name} does not have a ComicInfo.xml \033[0m")
             return
         with cbz.open("ComicInfo.xml") as xml_file:
             tree = etree.parse(xml_file)
@@ -338,7 +168,9 @@ def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, dry_run: bool):
         title_elem.text = series_elem.text
         cbz_contents = cbz.namelist()
         # create a new XML file in memory
-        new_xml = etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="utf-8")
+        new_xml = etree.tostring(
+            tree, pretty_print=True, xml_declaration=True, encoding="utf-8"
+        )
         # create a new cbz in memory
         new_cbz_data = io.BytesIO()
         with zipfile.ZipFile(new_cbz_data, "w") as new_cbz:
@@ -355,16 +187,15 @@ def korrect_comic_info(series_id: str, cur: sqlite3.Cursor, dry_run: bool):
 
 
 def korrect_oneshots(komga_db: str, dry_run=False) -> None:
-    con = sqlite3.connect(f"{komga_db}")
-    cur = con.cursor()
-    sql_cmd = format_sql(
-        f'''
-        SELECT id
-        FROM series
-        WHERE oneshot = 1
-        '''
-    )
-    series_ids = cur.execute(sql_cmd).fetchall()
-    for series_id in series_ids:
-        series_id = series_id[0]
-        korrect_comic_info(series_id, cur, dry_run)
+    """Read a Komga db, and alter the ComicInfo.xml of improperly titled one-shots
+
+    Args:
+        komga_db (str): The path to the Komga database file.
+        dry_run (bool, optional): If True, no changes will be made to the db.
+    """
+    engine = create_engine(f"sqlite:///{komga_db}")
+    Session = alch.sessionmaker(bind=engine)
+    with Session() as session:
+        all_series = session.query(Series).all()
+        for series in all_series:
+            korrect_comic_info(series, session, dry_run)
