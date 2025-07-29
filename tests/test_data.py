@@ -135,6 +135,7 @@ NORMAL_COMIC_INFO: Final[dict] = {
     },
     "expected": GOOD_COMIC_INFO,
 }
+# no title field
 
 # test_korrect_comic_info_error
 BAD_PATH_COMIC_INFO: Final[dict] = {
@@ -144,5 +145,8 @@ BAD_PATH_COMIC_INFO: Final[dict] = {
         "book": create_test_book(url=BAD_URL),
         "book_metadata": create_test_book_metadata(),
     },
-    "expected": f"{GOOD_NAME} cannot be found at {BAD_URL_FILTERED}",
+    "expected": f"No cbz found for {GOOD_NAME}",
 }
+# no comicinfo
+# no year field
+# field already correct

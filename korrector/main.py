@@ -168,42 +168,42 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
         dry_run (bool): If True, no changes will be made to the db.
 
     Raises:
-        FileNotFoundError: If the series cannot be found.
+        FileNotFoundError: If the cbz cannot be found, or the cbz has no ComicInfo.xml
+        ValueError: If the cbz has no year, or the field is already correct
 
     """
-    # FIXME raise FileNotFound error if no cbz
-    url = session.query(Book).filter_by(series_id=series.id).first().url
-    cbz_path = re.sub(r"file://?", "", unquote(url))
-    cbz_path = Path(cbz_path)
-    # extract ComicInfo.xml to a temporary directory
+    cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
+    cbz_path = Path(re.sub(r"file://?", "", unquote(cbz_url)))
     if not cbz_path.exists():
-        msg = f"{series.name} cannot be found at {cbz_path}"
+        msg = f"No cbz found for {series.name}"
         raise FileNotFoundError(msg)
+        # extract ComicInfo.xml to a temporary directory
     with zipfile.ZipFile(cbz_path, "r") as cbz:
-        # FIXME raise FileNotFound error if no ComicInfo.xml
         if "ComicInfo.xml" not in cbz.namelist():
-            logger.info(
-                "\033[91m %s doesn not have a ComicInfo.xml \033[0m", series.name,
-            )
-            return
+            msg = f"No ComicInfo.xml found in {series.name}"
+            raise FileNotFoundError(msg)
+        # parse the XML
         with cbz.open("ComicInfo.xml") as xml_file:
             tree = etree.parse(xml_file)
             root = tree.getroot()
+        if root.find("Year") is None:
+            msg = f"No year found in {series.name}"
+            raise ValueError(msg)
         series_elem = root.find("Series")
         title_elem = root.find("Title")
-        # FIXME raise value error if no year in ComicInfo.xml
+        # add title field if not present
         if title_elem is None:
             title_elem = etree.Element("Title")
-            title_elem.text = series_elem.text
-            root.append(title_elem)
-        # FIXME raise value error if title is already correct
-        elif title_elem.text == series_elem.text:
-            return
-        else:
-            logger.info("Updating title field: %s", title_elem.text)
+        if title_elem.text == series_elem.text:
+            msg = f"{series.name} is already correct"
+            raise ValueError(msg)
+        # make the correct title
+        new_title = f"{series_elem.text} ({root.find('Year').text})"
+        logger.info("ComicInfo: (%s) -> (%s)", title_elem.text, new_title)
         if dry_run:
             return
-        title_elem.text = series_elem.text
+        # set the title
+        title_elem.text = new_title
         cbz_contents = cbz.namelist()
         # create a new XML file in memory
         new_xml = etree.tostring(
