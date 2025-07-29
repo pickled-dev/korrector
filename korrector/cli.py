@@ -7,12 +7,21 @@ from korrector import korrect_database
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Korrector CLI")
     parser.add_argument("db_path", help="Path to Komga database file")
-    parser.add_argument("-v", "--verbose", action="store_true", help="adds verbose output")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="adds verbose output",
+    )
     parser.add_argument("--backup", help="Directory to store database backup")
-    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without making changes")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry run without making changes",
+    )
     args = parser.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -20,11 +29,10 @@ def main():
     logging.basicConfig(
         level=level,
         stream=sys.stdout,
-        format='%(message)s'
+        format="%(message)s",
     )
 
-    result = korrect_database(args.db_path, args.backup, args.dry_run)
-    print(result)
+    korrect_database(args.db_path, args.backup, args.dry_run)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from typing import Final
 
-from korrector.orm import Series, SeriesMetadata, Book, BookMetadata
+from korrector.orm import Book, BookMetadata, Series, SeriesMetadata
 
 TEST_SERIES_ID: Final[str] = "0MDQMN9C47SHT"
 TEST_BOOK_ID: Final[str] = "THS74C9NMQDM0"
@@ -22,7 +22,9 @@ def create_test_series(
 
 
 def create_test_series_metadata(
-    series_id: str = TEST_SERIES_ID, title: str = BAD_TITLE, title_lock: int = 0
+    series_id: str = TEST_SERIES_ID,
+    title: str = BAD_TITLE,
+    title_lock: int = 0,
 ) -> SeriesMetadata:
     return SeriesMetadata(series_id=series_id, title=title, title_lock=title_lock)
 
@@ -36,7 +38,9 @@ def create_test_book(
 
 
 def create_test_book_metadata(
-    book_id: str = TEST_BOOK_ID, number="1", release_date=TEST_DATE
+    book_id: str = TEST_BOOK_ID,
+    number: str = "1",
+    release_date: str = TEST_DATE,
 ) -> BookMetadata:
     return BookMetadata(book_id=book_id, number=number, release_date=release_date)
 
@@ -82,7 +86,7 @@ NO_FIRST_ISSUE: Final[dict] = {
         "book_metadata": create_test_book_metadata(number="100"),
     },
     "user_input": None,
-    "expected": "1999"
+    "expected": "1999",
 }
 
 # test_make_korrection_good

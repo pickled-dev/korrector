@@ -1,18 +1,19 @@
 import logging
-import pytest
 import re
 
-import test_data as td
+import pytest
 import sqlalchemy.orm as alch
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from korrector import main
 from korrector.orm import Base, Book, BookMetadata, Series, SeriesMetadata
 
+from . import test_data as td
+
 
 @pytest.fixture
-def db():
+def db() -> alch.Session:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -23,21 +24,25 @@ def db():
 
 
 def add_test_series(
-    series: Series, series_metadata: SeriesMetadata, test_session: alch.Session
+    series: Series,
+    series_metadata: SeriesMetadata,
+    test_session: alch.Session,
 ) -> None:
     test_session.add(series)
     test_session.add(series_metadata)
 
 
 def add_test_book(
-    book: Book, book_metadata: BookMetadata, test_session: alch.Session
+    book: Book,
+    book_metadata: BookMetadata,
+    test_session: alch.Session,
 ) -> None:
     test_session.add(book)
     test_session.add(book_metadata)
 
 
 @pytest.fixture
-def setup_test_data(request, db):
+def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     case = request.param
     add_test_series(case["series"], case["series_metadata"], db)
     add_test_book(case["book"], case["book_metadata"], db)
@@ -47,17 +52,23 @@ def setup_test_data(request, db):
 
 # get_release_year
 @pytest.mark.parametrize(
-    "setup_test_data, expected, log",
+    ("setup_test_data", "expected", "log"),
     [
         (
             td.VALID_SERIES["case"],
             td.VALID_SERIES["expected"],
             td.VALID_SERIES["log"],
-        )
+        ),
     ],
     indirect=["setup_test_data"],
 )
-def test_get_release_year(setup_test_data, expected, log, db, caplog):
+def test_get_release_year(
+    setup_test_data: dict,
+    expected: str,
+    log: str,
+    db: alch.Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level(logging.INFO)
     result = main.get_release_year(setup_test_data["series"], db)
     assert result == expected
@@ -65,7 +76,7 @@ def test_get_release_year(setup_test_data, expected, log, db, caplog):
 
 
 @pytest.mark.parametrize(
-    "setup_test_data, log",
+    ("setup_test_data", "log"),
     [
         (
             td.NO_FIRST_ISSUE_NO_YEAR["case"],
@@ -78,13 +89,17 @@ def test_get_release_year(setup_test_data, expected, log, db, caplog):
     ],
     indirect=["setup_test_data"],
 )
-def test_get_release_year_error(setup_test_data, log, db):
+def test_get_release_year_error(
+    setup_test_data: dict,
+    log: str,
+    db: alch.Session,
+) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
         main.get_release_year(setup_test_data["series"], db)
 
 
 @pytest.mark.parametrize(
-    "setup_test_data, user_input, expected",
+    ("setup_test_data", "user_input", "expected"),
     [
         (
             td.NO_FIRST_ISSUE["case"],
@@ -94,8 +109,14 @@ def test_get_release_year_error(setup_test_data, log, db):
     ],
     indirect=["setup_test_data"],
 )
-def test_get_release_year_input(setup_test_data, user_input, expected, db, monkeypatch):
-    def mock_input(prompt):
+def test_get_release_year_input(
+    setup_test_data: dict,
+    user_input: str,
+    expected: str,
+    db: alch.Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def mock_input(prompt: str) -> str:
         return user_input
 
     monkeypatch.setattr("builtins.input", mock_input)
@@ -105,7 +126,7 @@ def test_get_release_year_input(setup_test_data, user_input, expected, db, monke
 
 # make_korrection
 @pytest.mark.parametrize(
-    "setup_test_data, expected, log",
+    ("setup_test_data", "expected", "log"),
     [
         (
             td.STANDARD_KORRECTION["case"],
@@ -115,7 +136,13 @@ def test_get_release_year_input(setup_test_data, user_input, expected, db, monke
     ],
     indirect=["setup_test_data"],
 )
-def test_make_korrection(setup_test_data, expected, log, db, caplog):
+def test_make_korrection(
+    setup_test_data: dict,
+    expected: str,
+    log: str,
+    db: alch.Session,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     caplog.set_level(logging.INFO)
     main.make_korrection(setup_test_data["series"], db)
     result = (
@@ -129,7 +156,7 @@ def test_make_korrection(setup_test_data, expected, log, db, caplog):
 
 
 @pytest.mark.parametrize(
-    "setup_test_data, log",
+    ("setup_test_data", "log"),
     [
         (
             td.ALREADY_CORRECT["case"],
@@ -142,6 +169,10 @@ def test_make_korrection(setup_test_data, expected, log, db, caplog):
     ],
     indirect=["setup_test_data"],
 )
-def test_make_korrection_error(setup_test_data, log, db):
+def test_make_korrection_error(
+    setup_test_data: dict,
+    log: str,
+    db: alch.Session,
+) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
         main.make_korrection(setup_test_data["series"], db)
