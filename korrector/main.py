@@ -116,9 +116,8 @@ def make_korrection(series: Series, session: alch.Session) -> None:
     title = f"{series_meta.title} ({get_release_year(series, session)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = title.replace(r"'", r"''")
-    logger.debug(f"[{series.name}]")
-    test = f"({series_meta.title}) -> ({title})"
-    logger.info(test)
+    logger.info("%s", series.name)
+    logger.info("(%s) -> (%s)", series_meta.title, title)
     series_meta.title = title
 
 
@@ -147,7 +146,7 @@ def korrect_database(
             try:
                 make_korrection(series, session)
             except ValueError as e:
-                logger.debug(f"{e} Skipping.")
+                logger.debug("%s Skipping.", e)
                 continue
         if not dry_run:
             session.commit()
@@ -174,11 +173,13 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
     path = Path(path)
     # extract ComicInfo.xml to a temporary directory
     if not path.exists():
-        logger.info(f"\033[91m{series.name} cannot be found at {path!s}\033[0m")
+        logger.info("\033[91m %s cannot be found at %s \033[0m", series.name, path)
         return
     with zipfile.ZipFile(path, "r") as cbz:
         if "ComicInfo.xml" not in cbz.namelist():
-            logger.info(f"\033[91m{series.name} does not have a ComicInfo.xml \033[0m")
+            logger.info(
+                "\033[91m %s doesn not have a ComicInfo.xml \033[0m", series.name,
+            )
             return
         with cbz.open("ComicInfo.xml") as xml_file:
             tree = etree.parse(xml_file)
@@ -189,11 +190,11 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
             title_elem = etree.Element("Title")
             title_elem.text = series_elem.text
             root.append(title_elem)
-            logger.info(f"Creating title field: {title_elem.text}")
+            logger.info("Creating title field: %s", title_elem.text)
         elif title_elem.text == series_elem.text:
             return
         else:
-            logger.info(f"ComicInfo.xml: {title_elem.text} -> {series_elem.text}")
+            logger.info("Updating title field: %s", title_elem.text)
         if dry_run:
             return
         title_elem.text = series_elem.text
