@@ -167,15 +167,20 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
         session (alch.Session): The database session.
         dry_run (bool): If True, no changes will be made to the db.
 
+    Raises:
+        FileNotFoundError: If the series cannot be found.
+
     """
-    url = session.query(Book).filter_by(series.id).first().url
-    path = re.sub(r"file://?", "", unquote(url))
-    path = Path(path)
+    # FIXME raise FileNotFound error if no cbz
+    url = session.query(Book).filter_by(series_id=series.id).first().url
+    cbz_path = re.sub(r"file://?", "", unquote(url))
+    cbz_path = Path(cbz_path)
     # extract ComicInfo.xml to a temporary directory
-    if not path.exists():
-        logger.info("\033[91m %s cannot be found at %s \033[0m", series.name, path)
-        return
-    with zipfile.ZipFile(path, "r") as cbz:
+    if not cbz_path.exists():
+        msg = f"{series.name} cannot be found at {cbz_path}"
+        raise FileNotFoundError(msg)
+    with zipfile.ZipFile(cbz_path, "r") as cbz:
+        # FIXME raise FileNotFound error if no ComicInfo.xml
         if "ComicInfo.xml" not in cbz.namelist():
             logger.info(
                 "\033[91m %s doesn not have a ComicInfo.xml \033[0m", series.name,
@@ -186,11 +191,12 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
             root = tree.getroot()
         series_elem = root.find("Series")
         title_elem = root.find("Title")
+        # FIXME raise value error if no year in ComicInfo.xml
         if title_elem is None:
             title_elem = etree.Element("Title")
             title_elem.text = series_elem.text
             root.append(title_elem)
-            logger.info("Creating title field: %s", title_elem.text)
+        # FIXME raise value error if title is already correct
         elif title_elem.text == series_elem.text:
             return
         else:
@@ -215,9 +221,8 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
                     new_cbz.writestr(item, cbz.read(item))
             # write new ComicInfo
             new_cbz.writestr("ComicInfo.xml", new_xml)
-    logger.debug("Writing new CBZ")
     # write over old cbz with cbz built in memory
-    with Path.open("wb") as cbz:
+    with cbz_path.open("wb") as cbz:
         cbz.write(new_cbz_data.getvalue())
 
 

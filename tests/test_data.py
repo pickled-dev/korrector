@@ -10,7 +10,11 @@ GOOD_TITLE: Final[str] = "Test Series (1999)"
 BAD_TITLE: Final[str] = "Test Series"
 TEST_YEAR: Final[str] = "1999"
 TEST_DATE: Final[str] = "1999-01-01"
-TEST_URL: Final[str] = "file://test_assets/test.cbz"
+GOOD_URL: Final[str] = "file://tests/test_assets/test.cbz"
+BAD_URL: Final[str] = "file://tests/test_assets/does_not_exist.cbz"
+BAD_URL_FILTERED: Final[str] = "tests/test_assets/does_not_exist.cbz"
+BAD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
+GOOD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
 
 
 def create_test_series(
@@ -32,7 +36,7 @@ def create_test_series_metadata(
 def create_test_book(
     book_id: str = TEST_BOOK_ID,
     series_id: str = TEST_SERIES_ID,
-    url: str = TEST_URL,
+    url: str = GOOD_URL,
 ) -> Book:
     return Book(id=book_id, series_id=series_id, url=url)
 
@@ -111,7 +115,6 @@ ALREADY_CORRECT: Final[dict] = {
     },
     "log": f"{GOOD_NAME} is already correct [{GOOD_TITLE}]",
 }
-
 MANUAL_LOCK: Final[dict] = {
     "case": {
         "series": create_test_series(),
@@ -120,4 +123,26 @@ MANUAL_LOCK: Final[dict] = {
         "book_metadata": create_test_book_metadata(),
     },
     "log": f"{GOOD_NAME} is manually locked by user.",
+}
+
+# test_korrect_comic_info_good
+NORMAL_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": GOOD_COMIC_INFO,
+}
+
+# test_korrect_comic_info_error
+BAD_PATH_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(url=BAD_URL),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": f"{GOOD_NAME} cannot be found at {BAD_URL_FILTERED}",
 }

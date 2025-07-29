@@ -1,8 +1,14 @@
 import logging
 import re
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 import sqlalchemy.orm as alch
+from lxml import etree
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -176,3 +182,81 @@ def test_make_korrection_error(
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
         main.make_korrection(setup_test_data["series"], db)
+
+
+# korrect comic info
+@pytest.mark.parametrize(
+    ("setup_test_data", "expected"),
+    [
+        (
+            td.NORMAL_COMIC_INFO["case"],
+            td.NORMAL_COMIC_INFO["expected"],
+        ),
+    ],
+    indirect=["setup_test_data"],
+)
+def test_korrect_comic_info(
+    setup_test_data: dict,
+    expected: str,
+    db: alch.Session,
+) -> None:
+    # Arrange
+    path = unquote(setup_test_data["book"].url)
+    original = Path(re.sub(r"file://?", "", path))
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdir = Path(tmpdirname)
+        copied = shutil.copy(original, tmpdir)
+        setup_test_data["book"].url = f"file://{copied}"
+        db.add(setup_test_data["book"])
+        db.commit()
+
+        # Act
+        main.korrect_comic_info(setup_test_data["series"], db, False)
+        with zipfile.ZipFile(copied, "r") as cbz:
+            cbz.extract("ComicInfo.xml", tmpdir)
+        tree_result = etree.parse(f"{tmpdir}/ComicInfo.xml")
+        tree_expected = etree.parse(expected)
+
+        # Assert
+        assert etree.tostring(tree_result.getroot()) == etree.tostring(
+            tree_expected.getroot(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("setup_test_data", "expected"),
+    [
+        (
+            td.BAD_PATH_COMIC_INFO["case"],
+            td.BAD_PATH_COMIC_INFO["expected"],
+        ),
+    ],
+    indirect=["setup_test_data"],
+)
+def test_korrect_comic_info_error(
+    setup_test_data: dict,
+    expected: str,
+    db: alch.Session,
+) -> None:
+    original = Path(unquote(setup_test_data["book"].url))
+    # CASE: File does not exist
+    if not original.exists():
+        with pytest.raises(FileNotFoundError, match=re.escape(expected)):
+            main.korrect_comic_info(setup_test_data["series"], db, False)
+        return
+
+    # Arrange
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdir = Path(tmpdirname)
+        copied = shutil.copy(original, tmpdir)
+        setup_test_data["book"].url = f"file:{copied}"
+        db.add(setup_test_data["book"])
+        db.commit()
+
+        # Act
+        main.korrect_comic_info(setup_test_data["series"], db, False)
+        tree_result = etree.parse(copied)
+        tree_expected = etree.parse(expected)
+
+    # Assert
+    assert etree.tostring(tree_result) == etree.tostring(tree_expected)
