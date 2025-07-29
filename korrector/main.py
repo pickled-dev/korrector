@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 import sqlalchemy.orm as alch
 from lxml import etree
 
-from korrector.komga_orm import Book, Series, SeriesMetadata, BookMetadata
+from .orm import Book, Series, SeriesMetadata, BookMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +48,18 @@ def get_release_year(series: Series, session: alch.Session) -> str:
         ValueError: If no year can be found.
     """
     # return year of issue numbered 1 if available
-    first = series.books.filter_by(number="1").first()
+    first = session.query(BookMetadata).filter_by(number="1").first()
     if first is not None:
-        metadata_b = session.query(BookMetadata).filter_by(book_id=first.id).first()
-        release_date = metadata_b.release_date
-        return release_date[0].split("-")[0]
+        pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
+        if not pattern.match(first.release_date):
+            raise ValueError(
+                f"Invalid release date for {series.name}: {first.release_date}"
+            )
+        release_date = first.release_date
+        return release_date.split("-")[0]
 
     # Guess the year from the series name if no first issue is found
-    metadata_s = session.query(SeriesMetadata).filter_by(id=series.series_id).first()
-    match = re.search(r"\((\d{4})\)", metadata_s.title)
+    match = re.search(r"\((\d{4})\)", series.name)
     if match is None:
         raise ValueError(f"No first issue, or year, found in {series.name}")
     year = match.group(1)
@@ -81,17 +84,18 @@ def make_korrection(series: Series, session: alch.Session) -> None:
     Raises:
         ValueError: If the series is already correct, or if the series is locked.
     """
-    series_meta = session.query(SeriesMetadata).filter_by(id=series.series_id).first()
+    series_meta = session.query(SeriesMetadata).filter_by(series_id=series.id).first()
     meta_title = series_meta.title
     if meta_title and "(" in meta_title and ")" in meta_title:
         raise ValueError(f"{series.name} is already correct [{meta_title}]")
-    if series.locked:
+    if series_meta.title_lock:
         raise ValueError(f"{series.name} is manually locked by user.")
-    title = f"{series.metadata_title} ({get_release_year(series, session)})"
+    title = f"{series_meta.title} ({get_release_year(series, session)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = re.sub(r"'", r"''", title)
-    logger.debug(f"[{series["name"]}]")
-    logger.info(f"({series["metadata_title"]}) -> ({title})")
+    logger.debug(f"[{series.name}]")
+    test = f"({series_meta.title}) -> ({title})"
+    logger.info(test)
     series_meta.title = title
 
 
@@ -112,8 +116,7 @@ def korrect_database(komga_db: str, backup_path="", dry_run=False) -> str:
     engine = create_engine(f"sqlite:///{komga_db}")
     Session = alch.sessionmaker(bind=engine)
     with Session() as session:
-        all_series = session.query(Series).all()
-        for series in all_series:
+        for series in session.query(Series).all():
             try:
                 make_korrection(series, session)
             except ValueError as e:
@@ -180,7 +183,7 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool):
                     new_cbz.writestr(item, cbz.read(item))
             # write new ComicInfo
             new_cbz.writestr("ComicInfo.xml", new_xml)
-    logger.debug(f"Writing new CBZ")
+    logger.debug("Writing new CBZ")
     # write over old cbz with cbz built in memory
     with open(path, "wb") as cbz:
         cbz.write(new_cbz_data.getvalue())
