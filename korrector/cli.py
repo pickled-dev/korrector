@@ -2,6 +2,8 @@ import argparse
 import logging
 import sys
 
+import colorlog
+
 from korrector import korrect_database, korrect_oneshots
 
 logger = logging.getLogger(__name__)
@@ -18,11 +20,15 @@ def main() -> None:
     )
     parser.add_argument("--backup", help="Directory to store database backup")
     parser.add_argument(
-        "--oneshots",
+        "--korrect-oneshots",
+        dest="oneshots",
+        action="store_true",
         help="Adjust fields inside of ComicInfo.xml files for one-shots",
     )
     parser.add_argument(
         "--korrect-database",
+        dest="korrect_database",
+        action="store_true",
         help="Adjust the tables in the Komga db to facilitate importing reading lists",
     )
     parser.add_argument(
@@ -34,10 +40,24 @@ def main() -> None:
 
     level = logging.DEBUG if args.verbose else logging.INFO
 
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(
+        colorlog.ColoredFormatter(
+            "%(log_color)s%(levelname)s:%(name)s: %(message)s",
+            log_colors={
+                "DEBUG": "white",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "bold_red",
+            },
+        ),
+    )
+
     logging.basicConfig(
         level=level,
-        stream=sys.stdout,
         format="%(message)s",
+        handlers=[handler],
     )
 
     if args.oneshots:
