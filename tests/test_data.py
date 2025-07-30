@@ -181,7 +181,6 @@ NO_TITLE_COMIC_INFO: Final[dict] = {
     },
     "expected": f"No title found in ComicInfo.xml for {GOOD_NAME}",
 }
-# field already correct
 KORRECTED_COMIC_INFO: Final[dict] = {
     "case": {
         "series": create_test_series(),
