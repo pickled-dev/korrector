@@ -20,7 +20,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--backup",
-        dest="backup_path",
+        dest="backup",
         help="Directory to store database backup",
     )
     parser.add_argument(
