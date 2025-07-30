@@ -20,18 +20,21 @@ def main() -> None:
     )
     parser.add_argument("--backup", help="Directory to store database backup")
     parser.add_argument(
+        "-o",
         "--korrect-oneshots",
         dest="oneshots",
         action="store_true",
         help="Adjust fields inside of ComicInfo.xml files for one-shots",
     )
     parser.add_argument(
+        "-d",
         "--korrect-database",
         dest="korrect_database",
         action="store_true",
         help="Adjust the tables in the Komga db to facilitate importing reading lists",
     )
     parser.add_argument(
+        "-n",
         "--dry-run",
         action="store_true",
         help="Perform a dry run without making changes",
