@@ -11,3 +11,5 @@ __pycache__/
 .ruff_cache/
 
 temp/
+reading-lists/
+korrector.egg-info
