@@ -30,7 +30,7 @@ class Series(Base):
     oneshot = Column(Boolean)
 
     books = relationship("Book", backref="series")
-    series_metadata = relationship("SeriesMetadata", backref="series")
+    series_metadata = relationship("SeriesMetadata", backref="series", uselist=False)
 
 
 class SeriesMetadata(Base):
@@ -70,7 +70,7 @@ class Book(Base):
     series_id = Column(String, ForeignKey("series.id"))
     url = Column(String)
 
-    book_metadata = relationship("BookMetadata", backref="book")
+    book_metadata = relationship("BookMetadata", backref="book", uselist=False)
 
 
 class BookMetadata(Base):
