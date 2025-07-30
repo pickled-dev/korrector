@@ -2,7 +2,7 @@ import argparse
 import logging
 import sys
 
-from korrector import korrect_database
+from korrector import korrect_database, korrect_oneshots
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,14 @@ def main() -> None:
     )
     parser.add_argument("--backup", help="Directory to store database backup")
     parser.add_argument(
+        "--oneshots",
+        help="Adjust fields inside of ComicInfo.xml files for one-shots",
+    )
+    parser.add_argument(
+        "--korrect-database",
+        help="Adjust the tables in the Komga db to facilitate importing reading lists",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Perform a dry run without making changes",
@@ -32,7 +40,11 @@ def main() -> None:
         format="%(message)s",
     )
 
-    korrect_database(args.db_path, args.backup, args.dry_run)
+    if args.oneshots:
+        korrect_oneshots(args.db_path, args.dry_run)
+    if args.korrect_database:
+        korrect_database(args.db_path, args.backup, args.dry_run)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
