@@ -116,8 +116,7 @@ def make_korrection(series: Series, session: alch.Session) -> None:
     title = f"{series_meta.title} ({get_release_year(series, session)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = title.replace(r"'", r"''")
-    logger.info("%s", series.name)
-    logger.info("(%s) -> (%s)", series_meta.title, title)
+    logger.info("Korrection: [%s] (%s) -> (%s)", series.name, series_meta.title, title)
     series_meta.title = title
 
 
@@ -142,7 +141,8 @@ def korrect_database(
     engine = create_engine(f"sqlite:///{komga_db}")
     Session = alch.sessionmaker(bind=engine)
     with Session() as session:
-        for series in session.query(Series).all():
+        review = session.query(Series).filter_by(oneshot=False).all()
+        for series in review:
             try:
                 make_korrection(series, session)
             except ValueError as e:
