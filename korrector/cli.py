@@ -18,7 +18,11 @@ def main() -> None:
         action="store_true",
         help="adds verbose output",
     )
-    parser.add_argument("--backup", help="Directory to store database backup")
+    parser.add_argument(
+        "--backup",
+        dest="backup_path",
+        help="Directory to store database backup",
+    )
     parser.add_argument(
         "-o",
         "--comicinfo-oneshots",
