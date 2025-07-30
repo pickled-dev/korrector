@@ -67,10 +67,17 @@ def get_release_year(series: Series, session: alch.Session) -> str:
 
     """
     # return year of issue numbered 1 if available
-    first = session.query(BookMetadata).filter_by(number="1").first()
+    first: BookMetadata | None = next(
+        (
+            book.book_metadata
+            for book in series.books
+            if book.book_metadata and book.book_metadata.number == "1"
+        ),
+        None,
+    )
     if first is not None:
         pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
-        if not pattern.match(first.release_date):
+        if not first.release_date or not pattern.match(first.release_date):
             msg = f"Invalid release date for {series.name}: {first.release_date}"
             raise ValueError(msg)
         release_date = first.release_date
