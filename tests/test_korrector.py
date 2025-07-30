@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from korrector import main
 from korrector.orm import Base, Book, BookMetadata, Series, SeriesMetadata
 
-from . import test_data as td
+import tests.test_data as td
 
 
 @pytest.fixture
