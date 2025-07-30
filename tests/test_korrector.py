@@ -12,10 +12,9 @@ from lxml import etree
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import tests.test_data as td
 from korrector import main
 from korrector.orm import Base, Book, BookMetadata, Series, SeriesMetadata
-
-import tests.test_data as td
 
 
 @pytest.fixture
