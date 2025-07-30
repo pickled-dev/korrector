@@ -45,6 +45,11 @@ def main() -> None:
         action="store_true",
         help="Accept all default prompts",
     )
+    parser.add_argument(
+        "-p",
+        "--prefix",
+        help="Prefix to substitute in database path",
+    )
     args = parser.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -70,7 +75,7 @@ def main() -> None:
     )
 
     if args.oneshots:
-        korrect_oneshots(args.db_path, args.dry_run)
+        korrect_oneshots(args.db_path, args.dry_run, args.prefix)
     if args.korrect_database:
         korrect_database(args.db_path, args.backup, args.dry_run, args.yes)
     sys.exit(0)

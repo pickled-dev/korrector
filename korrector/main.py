@@ -167,7 +167,9 @@ def korrect_database(
     return "Korrection completed successfully."
 
 
-def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> None:
+def korrect_comic_info(
+    series: Series, session: alch.Session, dry_run: bool, library_prefix: str = "",
+) -> None:
     """Extract the ComicInfo.xml of a one-shot and alter the title.
 
     Due to how Komga searches for one-shot series, updating their metadata in the db
@@ -180,14 +182,22 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
         series (Series): The series to korrect.
         session (alch.Session): The database session.
         dry_run (bool): If True, no changes will be made to the db.
+        library_prefix (str, optional): comma separated string of path replacements
 
     Raises:
         FileNotFoundError: If the cbz cannot be found, or the cbz has no ComicInfo.xml
         ValueError: If the cbz has no year, or the field is already correct
 
     """
+    if library_prefix:
+        old = library_prefix.split(",", maxsplit=1)[0]
+        old = r"file://?" + old
+        new = library_prefix.split(",")[1]
+    else:
+        old = r"file://"
+        new = ""
     cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
-    cbz_path = Path(re.sub(r"file://?", "", unquote(cbz_url)))
+    cbz_path = Path(re.sub(old, new, unquote(cbz_url)))
     if not cbz_path.exists():
         msg = f"No cbz found for {series.name}"
         raise FileNotFoundError(msg)
@@ -241,12 +251,15 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
         cbz.write(new_cbz_data.getvalue())
 
 
-def korrect_oneshots(komga_db: str, dry_run: bool = False) -> None:
+def korrect_oneshots(
+    komga_db: str, dry_run: bool = False, library_prefix: str = None,
+) -> None:
     """Read a Komga db, and alter the ComicInfo.xml of improperly titled one-shots.
 
     Args:
         komga_db (str): The path to the Komga database file.
         dry_run (bool, optional): If True, no changes will be made to the db.
+        library_prefix (str, optional): comma separated string of path replacements
 
     """
     engine = create_engine(f"sqlite:///{komga_db}")
@@ -255,7 +268,7 @@ def korrect_oneshots(komga_db: str, dry_run: bool = False) -> None:
         all_series = session.query(Series).filter_by(oneshot=True).all()
         for series in all_series:
             try:
-                korrect_comic_info(series, session, dry_run)
+                korrect_comic_info(series, session, dry_run, library_prefix)
             except (FileNotFoundError, ValueError) as e:
                 logger.warning("%s Skipping.", e)
                 continue
