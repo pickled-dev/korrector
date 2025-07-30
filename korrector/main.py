@@ -243,6 +243,10 @@ def korrect_oneshots(komga_db: str, dry_run: bool = False) -> None:
     engine = create_engine(f"sqlite:///{komga_db}")
     Session = alch.sessionmaker(bind=engine)
     with Session() as session:
-        all_series = session.query(Series).all()
+        all_series = session.query(Series).filter_by(oneshot=True).all()
         for series in all_series:
-            korrect_comic_info(series, session, dry_run)
+            try:
+                korrect_comic_info(series, session, dry_run)
+            except (FileNotFoundError, ValueError) as e:
+                logger.warning("%s Skipping.", e)
+                continue
