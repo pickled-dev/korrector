@@ -17,6 +17,7 @@ running the script.
 
 import io
 import logging
+import pathlib
 import re
 import shutil
 import zipfile
@@ -167,29 +168,42 @@ def korrect_database(
     return "Korrection completed successfully."
 
 
-def korrect_comic_info(
+def korrect_comic_info_path(
+    oneshot_path: str,
+    dry_run: bool = False,
+) -> None:
+    """Read a directory of cbz files, and alter the ComicInfo.xml of each one.
+
+    Args:
+        oneshot_path (str): The path to the directory of one-shot cbz files.
+        dry_run (bool, optional): If True, no changes will be made to the db.
+
+    """
+    cbz_files = pathlib.Path(oneshot_path).rglob("*.cbz")
+    for cbz in cbz_files:
+        try:
+            korrect_comic_info(cbz, dry_run)
+        except (ValueError, FileNotFoundError) as e:
+            logger.warning("%s", e)
+            continue
+
+
+def korrect_comic_info_database(
     series: Series,
     session: alch.Session,
     dry_run: bool,
     library_prefix: str = "",
 ) -> None:
-    """Extract the ComicInfo.xml of a one-shot and alter the title.
-
-    Due to how Komga searches for one-shot series, updating their metadata in the db
-    is not sufficient to allow Komga to find them when importing a reading list.
-    The solution, instead, is to alter th ComicInfo.xml inside the cbz files to have
-    the correct titles. This is done by setting the <Title> element to be
-    "Title (YYYY)".
+    """Read a series in the komga database, and alter the ComicInfo.xml of each book in the series.
 
     Args:
-        series (Series): The series to korrect.
-        session (alch.Session): The database session.
+        series (Series): The series to make the korrection for.
+        session (alch.Session): The session to use to access the database.
         dry_run (bool): If True, no changes will be made to the db.
-        library_prefix (str, optional): comma separated string of path replacements
+        library_prefix (str, optional): A comma separated string of path replacements to be made to the url of the cbz files.
 
     Raises:
-        FileNotFoundError: If the cbz cannot be found, or the cbz has no ComicInfo.xml
-        ValueError: If the cbz has no year, or the field is already correct
+        ValueError: If the series is already correct, or if the series is locked.
 
     """
     meta = series.series_metadata
@@ -206,31 +220,52 @@ def korrect_comic_info(
         new = ""
     cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
     cbz_path = Path(re.sub(old, new, unquote(cbz_url)))
+    korrect_comic_info(cbz_path, dry_run)
+
+
+def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
+    """Extract the ComicInfo.xml of a one-shot and alter the title.
+
+    Due to how Komga searches for one-shot series, updating their metadata in the db
+    is not sufficient to allow Komga to find them when importing a reading list.
+    The solution, instead, is to alter th ComicInfo.xml inside the cbz files to have
+    the correct titles. This is done by setting the <Title> element to be
+    "Title (YYYY)".
+
+    Args:
+        cbz_path (Path): The path to the cbz file.
+        dry_run (bool): If True, no changes will be made to the db.
+
+    Raises:
+        FileNotFoundError: If the cbz cannot be found, or the cbz has no ComicInfo.xml
+        ValueError: If the cbz has no year, or the field is already correct
+
+    """
     if not cbz_path.exists():
-        msg = f"No cbz found for {series.name}"
+        msg = f"No cbz found for {cbz_path}"
         raise FileNotFoundError(msg)
         # extract ComicInfo.xml to a temporary directory
     with zipfile.ZipFile(cbz_path, "r") as cbz:
         if "ComicInfo.xml" not in cbz.namelist():
-            msg = f"No ComicInfo.xml found in {series.name}"
+            msg = f"No ComicInfo.xml found in {cbz_path}"
             raise FileNotFoundError(msg)
         # parse the XML
         with cbz.open("ComicInfo.xml") as xml_file:
             tree = etree.parse(xml_file)
             root = tree.getroot()
         if root.find("Year") is None:
-            msg = f"No year found in ComicInfo.xml for {series.name}"
+            msg = f"No year found in ComicInfo.xml for {cbz_path}"
             raise ValueError(msg)
         series_elem = root.find("Series")
         title_elem = root.find("Title")
         # if no title field is present, raid ValueError
         if title_elem is None:
-            msg = f"No title found in ComicInfo.xml for {series.name}"
+            msg = f"No title found in ComicInfo.xml for {cbz_path}"
             raise ValueError(msg)
         # make the correct title
         new_title = f"{series_elem.text} ({root.find('Year').text})"
         if title_elem.text == new_title:
-            msg = f"ComicInfo.xml for {series.name} is already correct"
+            msg = f"ComicInfo.xml for {cbz_path} is already correct"
             raise ValueError(msg)
         logger.info("ComicInfo: (%s) -> (%s)", title_elem.text, new_title)
         if dry_run:
@@ -278,7 +313,7 @@ def korrect_oneshots(
         all_series = session.query(Series).filter_by(oneshot=True).all()
         for series in all_series:
             try:
-                korrect_comic_info(series, session, dry_run, library_prefix)
+                korrect_comic_info_database(series, session, dry_run, library_prefix)
             except (FileNotFoundError, ValueError) as e:
                 if "correct" in str(e):
                     logger.debug("%s Skipping.", e)

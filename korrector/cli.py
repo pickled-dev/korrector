@@ -4,7 +4,7 @@ import sys
 
 import colorlog
 
-from korrector import korrect_database, korrect_oneshots
+from korrector import korrect_comic_info_path, korrect_database
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def main() -> None:
     )
 
     if args.oneshots:
-        korrect_oneshots(args.db_path, args.dry_run, args.prefix)
+        korrect_comic_info_path(args.oneshots, args.dry_run)
     if args.korrect_database:
         korrect_database(
             args.db_path,

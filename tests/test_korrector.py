@@ -270,7 +270,7 @@ def test_korrect_comic_info_error(
     # CASE: File does not exist
     if not original.exists():
         with pytest.raises(FileNotFoundError, match=re.escape(expected)):
-            main.korrect_comic_info(setup_test_data["series"], db, False)
+            main.korrect_comic_info_database(setup_test_data["series"], db, False)
         return
 
     # Arrange
@@ -284,7 +284,7 @@ def test_korrect_comic_info_error(
 
         # Act & Assert
         try:
-            main.korrect_comic_info(setup_test_data["series"], db, False)
+            main.korrect_comic_info_database(setup_test_data["series"], db, False)
         except (ValueError, FileNotFoundError) as e:
             assert expected in str(e)
         else:
