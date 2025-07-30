@@ -134,6 +134,7 @@ def korrect_database(
     backup_path: str = "",
     dry_run: bool = False,
     yes: bool = False,
+    check_oneshots: bool = False,
 ) -> str:
     """Read a Komga db, and alter the names of books in the db.
 
@@ -152,7 +153,10 @@ def korrect_database(
     engine = create_engine(f"sqlite:///{komga_db}")
     Session = alch.sessionmaker(bind=engine)
     with Session() as session:
-        review = session.query(Series).filter_by(oneshot=False).all()
+        if check_oneshots:
+            review = session.query(Series).all()
+        else:
+            review = session.query(Series).filter_by(oneshot=False).all()
         for series in review:
             try:
                 make_korrection(series, yes)
@@ -168,7 +172,10 @@ def korrect_database(
 
 
 def korrect_comic_info(
-    series: Series, session: alch.Session, dry_run: bool, library_prefix: str = "",
+    series: Series,
+    session: alch.Session,
+    dry_run: bool,
+    library_prefix: str = "",
 ) -> None:
     """Extract the ComicInfo.xml of a one-shot and alter the title.
 
@@ -189,6 +196,11 @@ def korrect_comic_info(
         ValueError: If the cbz has no year, or the field is already correct
 
     """
+    meta = series.series_metadata
+    meta_title = meta.title
+    if meta_title and "(" in meta_title and ")" in meta_title:
+        msg = f"{series.name} is already correct [{meta_title}]"
+        raise ValueError(msg)
     if library_prefix:
         old = library_prefix.split(",", maxsplit=1)[0]
         old = r"file://?" + old
@@ -252,7 +264,9 @@ def korrect_comic_info(
 
 
 def korrect_oneshots(
-    komga_db: str, dry_run: bool = False, library_prefix: str = None,
+    komga_db: str,
+    dry_run: bool = False,
+    library_prefix: str = None,
 ) -> None:
     """Read a Komga db, and alter the ComicInfo.xml of improperly titled one-shots.
 
@@ -270,5 +284,8 @@ def korrect_oneshots(
             try:
                 korrect_comic_info(series, session, dry_run, library_prefix)
             except (FileNotFoundError, ValueError) as e:
+                if "correct" in str(e):
+                    logger.debug("%s Skipping.", e)
+                    continue
                 logger.warning("%s Skipping.", e)
                 continue

@@ -21,20 +21,27 @@ def main() -> None:
     parser.add_argument("--backup", help="Directory to store database backup")
     parser.add_argument(
         "-o",
-        "--korrect-oneshots",
+        "--comicinfo-oneshots",
         dest="oneshots",
         action="store_true",
         help="Adjust fields inside of ComicInfo.xml files for one-shots",
     )
     parser.add_argument(
-        "-d",
+        "-O",
+        "--korrect-oneshots",
+        dest="korrect_oneshots",
+        action="store_true",
+        help="Adjust the tables in the Komga db to facilitate importing reading lists, including one-shots",
+    )
+    parser.add_argument(
+        "-D",
         "--korrect-database",
         dest="korrect_database",
         action="store_true",
-        help="Adjust the tables in the Komga db to facilitate importing reading lists",
+        help="Adjust the tables in the Komga db to facilitate importing reading lists, not including one-shots",
     )
     parser.add_argument(
-        "-n",
+        "-d",
         "--dry-run",
         action="store_true",
         help="Perform a dry run without making changes",
@@ -76,8 +83,8 @@ def main() -> None:
 
     if args.oneshots:
         korrect_oneshots(args.db_path, args.dry_run, args.prefix)
-    if args.korrect_database:
-        korrect_database(args.db_path, args.backup, args.dry_run, args.yes)
+    if args.korrect_database or args.korrect_oneshots:
+        korrect_database(args.db_path, args.backup, args.dry_run, args.yes, args.korrect_oneshots)
     sys.exit(0)
 
 
