@@ -10,11 +10,19 @@ GOOD_TITLE: Final[str] = "Test Series (1999)"
 BAD_TITLE: Final[str] = "Test Series"
 TEST_YEAR: Final[str] = "1999"
 TEST_DATE: Final[str] = "1999-01-01"
-GOOD_URL: Final[str] = "file://tests/test_assets/test.cbz"
-BAD_URL: Final[str] = "file://tests/test_assets/does_not_exist.cbz"
-BAD_URL_FILTERED: Final[str] = "tests/test_assets/does_not_exist.cbz"
 BAD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
 GOOD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
+
+# urls for test cbz
+NORMAL_URL: Final[str] = "file://tests/test_assets/test.cbz"
+BAD_URL: Final[str] = "file://tests/test_assets/does_not_exist.cbz"
+BAD_URL_FILTERED: Final[str] = "tests/test_assets/does_not_exist.cbz"
+NO_TITLE_URL: Final[str] = "file://tests/test_assets/NoTitleTest.cbz"
+NO_DATE_URL: Final[str] = "file://tests/test_assets/NoDateTest.cbz"
+NO_COMIC_INFO_URL: Final[str] = "file://tests/test_assets/NoComicInfoTest.cbz"
+KORRECTED_COMIC_INFO_URL: Final[str] = (
+    "file://tests/test_assets/KorrectedComicInfoTest.cbz"
+)
 
 
 def create_test_series(
@@ -36,7 +44,7 @@ def create_test_series_metadata(
 def create_test_book(
     book_id: str = TEST_BOOK_ID,
     series_id: str = TEST_SERIES_ID,
-    url: str = GOOD_URL,
+    url: str = NORMAL_URL,
 ) -> Book:
     return Book(id=book_id, series_id=series_id, url=url)
 
@@ -135,7 +143,6 @@ NORMAL_COMIC_INFO: Final[dict] = {
     },
     "expected": GOOD_COMIC_INFO,
 }
-# no title field
 
 # test_korrect_comic_info_error
 BAD_PATH_COMIC_INFO: Final[dict] = {
@@ -147,6 +154,40 @@ BAD_PATH_COMIC_INFO: Final[dict] = {
     },
     "expected": f"No cbz found for {GOOD_NAME}",
 }
-# no comicinfo
-# no year field
+NO_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(url=NO_COMIC_INFO_URL),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": f"No ComicInfo.xml found in {GOOD_NAME}",
+}
+NO_DATE_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(url=NO_DATE_URL),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": f"No year found in ComicInfo.xml for {GOOD_NAME}",
+}
+NO_TITLE_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(url=NO_TITLE_URL),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": f"No title found in ComicInfo.xml for {GOOD_NAME}",
+}
 # field already correct
+KORRECTED_COMIC_INFO: Final[dict] = {
+    "case": {
+        "series": create_test_series(),
+        "series_metadata": create_test_series_metadata(),
+        "book": create_test_book(url=KORRECTED_COMIC_INFO_URL),
+        "book_metadata": create_test_book_metadata(),
+    },
+    "expected": f"ComicInfo.xml for {GOOD_NAME} is already correct",
+}

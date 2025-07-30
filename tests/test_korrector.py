@@ -67,6 +67,7 @@ def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["valid_series"],
 )
 def test_get_release_year(
     setup_test_data: dict,
@@ -94,6 +95,7 @@ def test_get_release_year(
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["no_first_issue_no_year", "empty_release_date"],
 )
 def test_get_release_year_error(
     setup_test_data: dict,
@@ -114,6 +116,7 @@ def test_get_release_year_error(
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["no_first_issue"],
 )
 def test_get_release_year_input(
     setup_test_data: dict,
@@ -141,6 +144,7 @@ def test_get_release_year_input(
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["standard_korrection"],
 )
 def test_make_korrection(
     setup_test_data: dict,
@@ -174,6 +178,7 @@ def test_make_korrection(
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["already_correct", "manual_lock"],
 )
 def test_make_korrection_error(
     setup_test_data: dict,
@@ -194,6 +199,7 @@ def test_make_korrection_error(
         ),
     ],
     indirect=["setup_test_data"],
+    ids=["normal_comic_info"],
 )
 def test_korrect_comic_info(
     setup_test_data: dict,
@@ -227,18 +233,41 @@ def test_korrect_comic_info(
     ("setup_test_data", "expected"),
     [
         (
+            td.NO_TITLE_COMIC_INFO["case"],
+            td.NO_TITLE_COMIC_INFO["expected"],
+        ),
+        (
             td.BAD_PATH_COMIC_INFO["case"],
             td.BAD_PATH_COMIC_INFO["expected"],
         ),
+        (
+            td.NO_COMIC_INFO["case"],
+            td.NO_COMIC_INFO["expected"],
+        ),
+        (
+            td.NO_DATE_COMIC_INFO["case"],
+            td.NO_DATE_COMIC_INFO["expected"],
+        ),
+        (
+            td.KORRECTED_COMIC_INFO["case"],
+            td.KORRECTED_COMIC_INFO["expected"],
+        ),
     ],
     indirect=["setup_test_data"],
+    ids=[
+        "no title",
+        "no cbz",
+        "no ComicInfo.xml",
+        "no date",
+        "korrected",
+    ],
 )
 def test_korrect_comic_info_error(
     setup_test_data: dict,
     expected: str,
     db: alch.Session,
 ) -> None:
-    original = Path(unquote(setup_test_data["book"].url))
+    original = Path(re.sub(r"file://?", "", unquote(setup_test_data["book"].url)))
     # CASE: File does not exist
     if not original.exists():
         with pytest.raises(FileNotFoundError, match=re.escape(expected)):
@@ -246,17 +275,18 @@ def test_korrect_comic_info_error(
         return
 
     # Arrange
+    # copy test data to temp dir
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
         copied = shutil.copy(original, tmpdir)
-        setup_test_data["book"].url = f"file:{copied}"
+        setup_test_data["book"].url = f"file://{copied}"
         db.add(setup_test_data["book"])
         db.commit()
 
-        # Act
-        main.korrect_comic_info(setup_test_data["series"], db, False)
-        tree_result = etree.parse(copied)
-        tree_expected = etree.parse(expected)
-
-    # Assert
-    assert etree.tostring(tree_result) == etree.tostring(tree_expected)
+        # Act & Assert
+        try:
+            main.korrect_comic_info(setup_test_data["series"], db, False)
+        except (ValueError, FileNotFoundError) as e:
+            assert expected in str(e)
+        else:
+            pytest.fail("Expected ValueError or FileNotFoundError not raised")

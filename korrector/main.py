@@ -187,18 +187,19 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
             tree = etree.parse(xml_file)
             root = tree.getroot()
         if root.find("Year") is None:
-            msg = f"No year found in {series.name}"
+            msg = f"No year found in ComicInfo.xml for {series.name}"
             raise ValueError(msg)
         series_elem = root.find("Series")
         title_elem = root.find("Title")
-        # add title field if not present
+        # if no title field is present, raid ValueError
         if title_elem is None:
-            title_elem = etree.Element("Title")
-        if title_elem.text == series_elem.text:
-            msg = f"{series.name} is already correct"
+            msg = f"No title found in ComicInfo.xml for {series.name}"
             raise ValueError(msg)
         # make the correct title
         new_title = f"{series_elem.text} ({root.find('Year').text})"
+        if title_elem.text == new_title:
+            msg = f"ComicInfo.xml for {series.name} is already correct"
+            raise ValueError(msg)
         logger.info("ComicInfo: (%s) -> (%s)", title_elem.text, new_title)
         if dry_run:
             return
