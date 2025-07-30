@@ -47,7 +47,7 @@ def backup(komga_db_path: str, komga_backup: str) -> None:
     shutil.copy(src, dest)
 
 
-def get_release_year(series: Series) -> str:
+def get_release_year(series: Series, yes: bool = False) -> str:
     """Get the release year for a series.
 
     If the first issue is available, it will return the release year of that issue.
@@ -57,6 +57,7 @@ def get_release_year(series: Series) -> str:
 
     Args:
         series (Series): The series to get the release year for.
+        yes (bool, optional): If True, will prompt the user to enter the year manually.
 
     Returns:
         str: The release year as a string.
@@ -90,6 +91,8 @@ def get_release_year(series: Series) -> str:
     year = match.group(1)
 
     # prompt user offering guess year as default
+    if yes:
+        return year
     response = input(
         f"No first issue found for {series.name}. \
             Enter year manually (Default: {year}): ",
@@ -97,7 +100,7 @@ def get_release_year(series: Series) -> str:
     return response or year
 
 
-def make_korrection(series: Series) -> None:
+def make_korrection(series: Series, yes: bool = False) -> None:
     """Alter a series in the komga database to make it easier to import.
 
     The desired format for the TITLE field in the SERIES_METADTA tablse is:
@@ -105,6 +108,7 @@ def make_korrection(series: Series) -> None:
 
     Args:
         series (Series): The series to make the korrection for.
+        yes (bool, optional): If True, will prompt the user to enter the year manually.
 
     Raises:
         ValueError: If the series is already correct, or if the series is locked.
@@ -118,7 +122,7 @@ def make_korrection(series: Series) -> None:
     if meta.title_lock:
         msg = f"{series.name} is manually locked by user."
         raise ValueError(msg)
-    title = f"{meta.title} ({get_release_year(series)})"
+    title = f"{meta.title} ({get_release_year(series, yes)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = title.replace(r"'", r"''")
     logger.info("Korrection: [%s] (%s) -> (%s)", series.name, meta.title, title)
@@ -129,6 +133,7 @@ def korrect_database(
     komga_db: str,
     backup_path: str = "",
     dry_run: bool = False,
+    yes: bool = False,
 ) -> str:
     """Read a Komga db, and alter the names of books in the db.
 
@@ -136,6 +141,7 @@ def korrect_database(
         komga_db (str): The path to the Komga database file.
         backup_path (str, optional): Path where a backup of the db should be stored.
         dry_run (bool, optional): If True, no changes will be made to the db.
+        yes (bool, optional): If True, will prompt the user to enter the year manually.
 
     Returns:
         str: A message indicating that the korrection has completed successfully.
@@ -149,7 +155,7 @@ def korrect_database(
         review = session.query(Series).filter_by(oneshot=False).all()
         for series in review:
             try:
-                make_korrection(series)
+                make_korrection(series, yes)
             except ValueError as e:
                 if "No first" in str(e) or "Invalid" in str(e):
                     logger.warning("%s Skipping.", e)

@@ -39,6 +39,12 @@ def main() -> None:
         action="store_true",
         help="Perform a dry run without making changes",
     )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Accept all default prompts",
+    )
     args = parser.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -66,7 +72,7 @@ def main() -> None:
     if args.oneshots:
         korrect_oneshots(args.db_path, args.dry_run)
     if args.korrect_database:
-        korrect_database(args.db_path, args.backup, args.dry_run)
+        korrect_database(args.db_path, args.backup, args.dry_run, args.yes)
     sys.exit(0)
 
 
