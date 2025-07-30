@@ -181,10 +181,7 @@ def korrect_comic_info(series: Series, session: alch.Session, dry_run: bool) -> 
 
     """
     cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
-    # FIXME
-    cbz_path = Path(
-        re.sub(r"file://?data/", "/data/lorenzo/data/print/", unquote(cbz_url)),
-    )
+    cbz_path = Path(re.sub(r"file://?", "", unquote(cbz_url)))
     if not cbz_path.exists():
         msg = f"No cbz found for {series.name}"
         raise FileNotFoundError(msg)
@@ -254,7 +251,5 @@ def korrect_oneshots(komga_db: str, dry_run: bool = False) -> None:
             try:
                 korrect_comic_info(series, session, dry_run)
             except (FileNotFoundError, ValueError) as e:
-                if "correct" in str(e):
-                    logger.debug("%s Skipping.", e)
-                    continue
                 logger.warning("%s Skipping.", e)
+                continue
