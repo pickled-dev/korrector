@@ -134,7 +134,6 @@ def korrect_database(
     backup_path: str = "",
     dry_run: bool = False,
     yes: bool = False,
-    check_oneshots: bool = False,
 ) -> str:
     """Read a Komga db, and alter the names of books in the db.
 
@@ -153,10 +152,7 @@ def korrect_database(
     engine = create_engine(f"sqlite:///{komga_db}")
     Session = alch.sessionmaker(bind=engine)
     with Session() as session:
-        if check_oneshots:
-            review = session.query(Series).all()
-        else:
-            review = session.query(Series).filter_by(oneshot=False).all()
+        review = session.query(Series).all()
         for series in review:
             try:
                 make_korrection(series, yes)

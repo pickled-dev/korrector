@@ -24,14 +24,7 @@ def main() -> None:
         "--comicinfo-oneshots",
         dest="oneshots",
         action="store_true",
-        help="Adjust fields inside of ComicInfo.xml files for one-shots",
-    )
-    parser.add_argument(
-        "-O",
-        "--korrect-oneshots",
-        dest="korrect_oneshots",
-        action="store_true",
-        help="Adjust the tables in the Komga db to facilitate importing reading lists, including one-shots",
+        help="Adjust fields inside ComicInfo.xml of cbz in target dir to allow Komga CBL import to find one-shots",
     )
     parser.add_argument(
         "-D",
@@ -83,8 +76,13 @@ def main() -> None:
 
     if args.oneshots:
         korrect_oneshots(args.db_path, args.dry_run, args.prefix)
-    if args.korrect_database or args.korrect_oneshots:
-        korrect_database(args.db_path, args.backup, args.dry_run, args.yes, args.korrect_oneshots)
+    if args.korrect_database:
+        korrect_database(
+            args.db_path,
+            args.backup,
+            args.dry_run,
+            args.yes,
+        )
     sys.exit(0)
 
 
