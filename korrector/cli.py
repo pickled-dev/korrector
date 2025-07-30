@@ -4,7 +4,11 @@ import sys
 
 import colorlog
 
-from korrector import korrect_comic_info_path, korrect_database
+from korrector import (
+    korrect_comic_info_path,
+    korrect_database,
+    korrect_database_oneshots,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,13 @@ def main() -> None:
         help="Adjust fields inside ComicInfo.xml of cbz in target dir to allow Komga CBL import to find one-shots",
     )
     parser.add_argument(
+        "-O",
+        "--korrect-oneshots",
+        dest="korrect_oneshots",
+        action="store_true",
+        help="Adjust the tables in the Komga db to allow Komga CBL import to find one-shots",
+    )
+    parser.add_argument(
         "-D",
         "--korrect-database",
         dest="korrect_database",
@@ -52,6 +63,7 @@ def main() -> None:
     parser.add_argument(
         "-p",
         "--prefix",
+        dest="prefix",
         help="Prefix to substitute in database path",
     )
     args = parser.parse_args()
@@ -86,6 +98,12 @@ def main() -> None:
             args.backup,
             args.dry_run,
             args.yes,
+        )
+    if args.korrect_oneshots:
+        korrect_database_oneshots(
+            args.db_path,
+            args.dry_run,
+            args.prefix,
         )
     sys.exit(0)
 

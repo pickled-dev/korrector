@@ -194,23 +194,16 @@ def korrect_comic_info_database(
     dry_run: bool,
     library_prefix: str = "",
 ) -> None:
-    """Read a series in the komga database, and alter the ComicInfo.xml of each book in the series.
+    """Read a series in the komga database, and alter the ComicInfo.xml.
 
     Args:
         series (Series): The series to make the korrection for.
         session (alch.Session): The session to use to access the database.
         dry_run (bool): If True, no changes will be made to the db.
-        library_prefix (str, optional): A comma separated string of path replacements to be made to the url of the cbz files.
-
-    Raises:
-        ValueError: If the series is already correct, or if the series is locked.
+        library_prefix (str, optional): A comma separated string of path replacements to
+            be made to the url of the cbz files.
 
     """
-    meta = series.series_metadata
-    meta_title = meta.title
-    if meta_title and "(" in meta_title and ")" in meta_title:
-        msg = f"{series.name} is already correct [{meta_title}]"
-        raise ValueError(msg)
     if library_prefix:
         old = library_prefix.split(",", maxsplit=1)[0]
         old = r"file://?" + old
@@ -258,7 +251,7 @@ def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
             raise ValueError(msg)
         series_elem = root.find("Series")
         title_elem = root.find("Title")
-        # if no title field is present, raid ValueError
+        # if no title field is present, raise ValueError
         if title_elem is None:
             msg = f"No title found in ComicInfo.xml for {cbz_path}"
             raise ValueError(msg)
@@ -294,7 +287,7 @@ def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
         cbz.write(new_cbz_data.getvalue())
 
 
-def korrect_oneshots(
+def korrect_database_oneshots(
     komga_db: str,
     dry_run: bool = False,
     library_prefix: str = None,
