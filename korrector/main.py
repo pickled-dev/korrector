@@ -151,6 +151,9 @@ def korrect_database(
             try:
                 make_korrection(series)
             except ValueError as e:
+                if "No first" in str(e) or "Invalid" in str(e):
+                    logger.warning("%s Skipping.", e)
+                    continue
                 logger.debug("%s Skipping.", e)
                 continue
         if not dry_run:

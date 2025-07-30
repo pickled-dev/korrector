@@ -2,6 +2,8 @@ import argparse
 import logging
 import sys
 
+import colorlog
+
 from korrector import korrect_database, korrect_oneshots
 
 logger = logging.getLogger(__name__)
@@ -38,10 +40,24 @@ def main() -> None:
 
     level = logging.DEBUG if args.verbose else logging.INFO
 
+    handler = colorlog.StreamHandler()
+    handler.setFormatter(
+        colorlog.ColoredFormatter(
+            "%(log_color)s%(levelname)s:%(name)s: %(message)s",
+            log_colors={
+                "DEBUG": "white",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "bold_red",
+            },
+        ),
+    )
+
     logging.basicConfig(
         level=level,
-        stream=sys.stdout,
         format="%(message)s",
+        handlers=[handler],
     )
 
     if args.oneshots:
