@@ -28,7 +28,7 @@ import sqlalchemy.orm as alch
 from lxml import etree
 from sqlalchemy import create_engine
 
-from .orm import Book, BookMetadata, Series, SeriesMetadata
+from .orm import Book, BookMetadata, Series
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def backup(komga_db_path: str, komga_backup: str) -> None:
     shutil.copy(src, dest)
 
 
-def get_release_year(series: Series, session: alch.Session) -> str:
+def get_release_year(series: Series) -> str:
     """Get the release year for a series.
 
     If the first issue is available, it will return the release year of that issue.
@@ -57,7 +57,6 @@ def get_release_year(series: Series, session: alch.Session) -> str:
 
     Args:
         series (Series): The series to get the release year for.
-        session (alch.Session): The database session.
 
     Returns:
         str: The release year as a string.
@@ -98,7 +97,7 @@ def get_release_year(series: Series, session: alch.Session) -> str:
     return response or year
 
 
-def make_korrection(series: Series, session: alch.Session) -> None:
+def make_korrection(series: Series) -> None:
     """Alter a series in the komga database to make it easier to import.
 
     The desired format for the TITLE field in the SERIES_METADTA tablse is:
@@ -106,25 +105,24 @@ def make_korrection(series: Series, session: alch.Session) -> None:
 
     Args:
         series (Series): The series to make the korrection for.
-        session (alch.Session): The database session.
 
     Raises:
         ValueError: If the series is already correct, or if the series is locked.
 
     """
-    series_meta = session.query(SeriesMetadata).filter_by(series_id=series.id).first()
-    meta_title = series_meta.title
+    meta = series.series_metadata
+    meta_title = meta.title
     if meta_title and "(" in meta_title and ")" in meta_title:
         msg = f"{series.name} is already correct [{meta_title}]"
         raise ValueError(msg)
-    if series_meta.title_lock:
+    if meta.title_lock:
         msg = f"{series.name} is manually locked by user."
         raise ValueError(msg)
-    title = f"{series_meta.title} ({get_release_year(series, session)})"
+    title = f"{meta.title} ({get_release_year(series)})"
     # replace single quotes with 2 single quotes to escape single quotes in SQL
     title = title.replace(r"'", r"''")
-    logger.info("Korrection: [%s] (%s) -> (%s)", series.name, series_meta.title, title)
-    series_meta.title = title
+    logger.info("Korrection: [%s] (%s) -> (%s)", series.name, meta.title, title)
+    meta.title = title
 
 
 def korrect_database(
@@ -151,7 +149,7 @@ def korrect_database(
         review = session.query(Series).filter_by(oneshot=False).all()
         for series in review:
             try:
-                make_korrection(series, session)
+                make_korrection(series)
             except ValueError as e:
                 logger.debug("%s Skipping.", e)
                 continue

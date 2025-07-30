@@ -77,7 +77,7 @@ def test_get_release_year(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    result = main.get_release_year(setup_test_data["series"], db)
+    result = main.get_release_year(setup_test_data["series"])
     assert result == expected
     assert log in caplog.text
 
@@ -103,7 +103,7 @@ def test_get_release_year_error(
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.get_release_year(setup_test_data["series"], db)
+        main.get_release_year(setup_test_data["series"])
 
 
 @pytest.mark.parametrize(
@@ -129,7 +129,7 @@ def test_get_release_year_input(
         return user_input
 
     monkeypatch.setattr("builtins.input", mock_input)
-    result = main.get_release_year(setup_test_data["series"], db)
+    result = main.get_release_year(setup_test_data["series"])
     assert result == expected
 
 
@@ -154,7 +154,7 @@ def test_make_korrection(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    main.make_korrection(setup_test_data["series"], db)
+    main.make_korrection(setup_test_data["series"])
     result = (
         db.query(SeriesMetadata)
         .filter_by(series_id=setup_test_data["series"].id)
@@ -186,7 +186,7 @@ def test_make_korrection_error(
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.make_korrection(setup_test_data["series"], db)
+        main.make_korrection(setup_test_data["series"])
 
 
 # korrect comic info
