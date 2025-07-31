@@ -4,7 +4,6 @@ import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from urllib.parse import unquote
 
 import pytest
 import sqlalchemy.orm as alch
@@ -68,7 +67,7 @@ def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     indirect=["case"],
     ids=["Test Get Release Year Success"],
 )
-def test_get_release_year(
+def test_get_release_year_success(
     case: dict,
     expected: str,
     log: str,
@@ -141,9 +140,14 @@ def test_get_release_year_input(
             td.MAKE_KORRECTION_SUCCESS["expected"],
             td.MAKE_KORRECTION_SUCCESS["log"],
         ),
+        (
+            td.SINGLE_QUOTE_TITLE["case"],
+            td.SINGLE_QUOTE_TITLE["expected"],
+            td.SINGLE_QUOTE_TITLE["log"],
+        ),
     ],
     indirect=["case"],
-    ids=["Make Korrection Success"],
+    ids=["Make Korrection Success", "Single Quote Title"],
 )
 def test_make_korrection_success(
     case: dict,
