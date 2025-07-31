@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Korrector CLI")
-    parser.add_argument("db_path", help="Path to Komga database file")
+    parser.add_argument("db_path", optional=True, help="Path to Komga database file")
     parser.add_argument(
         "-v",
         "--verbose",
