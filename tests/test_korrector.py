@@ -2,6 +2,7 @@ import logging
 import re
 import shutil
 import tempfile
+import typing
 import zipfile
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from korrector.orm import Base, Book, BookMetadata, Series, SeriesMetadata
 
 
 @pytest.fixture
-def db() -> alch.Session:
+def db() -> typing.Generator[alch.Session]:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)

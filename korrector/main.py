@@ -346,7 +346,7 @@ def korrect_comic_info_database(
     series: Series,
     session: alch.Session,
     dry_run: bool,
-    library_prefix: [str, None] = None,
+    library_prefix: str | None = None,
 ) -> None:
     """Read a series in the komga database, and alter the ComicInfo.xml.
 
@@ -373,7 +373,7 @@ def korrect_comic_info_database(
 def korrect_database_oneshots(
     komga_db: str,
     dry_run: bool = False,
-    library_prefix: [str, None] = None,
+    library_prefix: str | None = None,
 ) -> None:
     """Read a Komga db, and alter the ComicInfo.xml of improperly titled one-shots.
 
