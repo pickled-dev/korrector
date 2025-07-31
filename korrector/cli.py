@@ -117,7 +117,7 @@ def handle_korrect_komga(args: argparse.Namespace) -> None:
     if args.korrect_database and args.korrect_oneshots:
         msg = "-d cannot be used with -o"
         raise ValueError(msg)
-    if args.replace and not args.korrect_database:
+    if args.replace and not args.korrect_oneshots:
         msg = "-r can only be used with -o"
         raise ValueError(msg)
     korrect_database(
