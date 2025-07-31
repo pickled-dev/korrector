@@ -19,12 +19,11 @@ TEST_BOOK_ID: Final[str] = "0MDQMN9C47SHT"
 # urls for test cbz
 TEST_URL: Final[str] = "file://tests/test_assets/test.cbz"
 TEST_CBZ_PATH: Final[str] = "tests/test_assets/test.cbz"
-NO_TITLE_URL: Final[str] = "file://tests/test_assets/NoTitleTest.cbz"
-NO_DATE_URL: Final[str] = "file://tests/test_assets/NoDateTest.cbz"
-NO_COMIC_INFO_URL: Final[str] = "file://tests/test_assets/NoComicInfoTest.cbz"
-KORRECTED_COMIC_INFO_URL: Final[str] = (
-    "file://tests/test_assets/KorrectedComicInfoTest.cbz"
-)
+NO_TITLE_PATH: Final[str] = "tests/test_assets/NoTitleTest.cbz"
+NO_DATE_PATH: Final[str] = "tests/test_assets/NoDateTest.cbz"
+NO_COMIC_INFO_PATH: Final[str] = "tests/test_assets/NoComicInfoTest.cbz"
+KORRECTED_COMIC_INFO_PATH: Final[str] = "tests/test_assets/KorrectedComicInfoTest.cbz"
+
 
 # Book Metadata
 
@@ -69,7 +68,8 @@ class SeriesTestCase:
     book_metadata: BookMetadata
 
 
-# test_get_release_year_good
+# ---- get_release_year ----
+# test_get_release_year_success
 GET_RELEASE_YEAR_SUCCESS: Final[dict] = {
     "case": SeriesTestCase(
         create_test_series(),
@@ -80,7 +80,6 @@ GET_RELEASE_YEAR_SUCCESS: Final[dict] = {
     "expected": TEST_YEAR,
     "log": "",
 }
-
 # test_get_release_year_error
 NO_FIRST_ISSUE_NO_YEAR: Final[dict] = {
     "case": SeriesTestCase(
@@ -100,7 +99,6 @@ EMPTY_RELEASE_DATE: Final[dict] = {
     ),
     "log": f"Invalid release date for {TEST_SERIES_NAME}:     ",
 }
-
 # test_get_release_year_input
 NO_FIRST_ISSUE: Final[dict] = {
     "case": SeriesTestCase(
@@ -113,6 +111,7 @@ NO_FIRST_ISSUE: Final[dict] = {
     "expected": "1999",
 }
 
+# ---- make_korrection ----
 # test_make_korrection_success
 MAKE_KORRECTION_SUCCESS: Final[dict] = {
     "case": SeriesTestCase(
@@ -124,7 +123,17 @@ MAKE_KORRECTION_SUCCESS: Final[dict] = {
     "expected": GOOD_TITLE,
     "log": f"({BAD_TITLE}) -> ({GOOD_TITLE})",
 }
-
+# Title with single quotes
+SINGLE_QUOTE_TITLE: Final[dict] = {
+    "case": SeriesTestCase(
+        create_test_series(name="Test's Series v1 (1999)"),
+        create_test_series_metadata(title="Test's Series"),
+        create_test_book(),
+        create_test_book_metadata(),
+    ),
+    "expected": "Test's Series (1999)",
+    "log": "(Test's Series) -> (Test's Series (1999))",
+}
 # test_make_korrection_error
 ALREADY_CORRECT: Final[dict] = {
     "case": SeriesTestCase(
@@ -145,8 +154,22 @@ MANUAL_LOCK: Final[dict] = {
     "log": f"{TEST_SERIES_NAME} is manually locked by user.",
 }
 
+# ---- korrect_comic_info ----
 # test korrect_comic_info_success
 NORMAL_COMIC_INFO: Final[dict] = {
     "path": TEST_CBZ_PATH,
     "expected": GOOD_COMIC_INFO,
+}
+# test korrect_comic_info_error
+ALREADY_CORRECT_COMIC_INFO: Final[dict] = {
+    "path": KORRECTED_COMIC_INFO_PATH,
+    "log": f"ComicInfo.xml for {KORRECTED_COMIC_INFO_PATH} is already correct",
+}
+NO_CBZ_FILE: Final[dict] = {
+    "path": "tests/test_assets/does_not_exist.cbz",
+    "log": "No cbz found for tests/test_assets/does_not_exist.cbz",
+}
+NO_COMIC_INFO_XML: Final[dict] = {
+    "path": NO_COMIC_INFO_PATH,
+    "log": f"No ComicInfo.xml found in {NO_COMIC_INFO_PATH}",
 }
