@@ -1,3 +1,13 @@
+"""Test suite for the korrector module.
+
+This file contains unit tests for the korrector package, focusing on database
+operations, metadata correction, and ComicInfo.xml file handling. It uses pytest
+fixtures and test data from in the form of a `TestCase` class to
+simulate various scenarios and validate the functionality of the korrector module.
+
+See tests/test_data.py for the data model of `TestCase`
+"""
+
 import logging
 import re
 import shutil
@@ -19,6 +29,16 @@ from korrector.orm import Base, Book, BookMetadata, Series, SeriesMetadata
 
 @pytest.fixture
 def db() -> typing.Generator[alch.Session]:
+    """
+    Creates a SQLAlchemy in-memory SQLite database session for testing purposes.
+
+    This generator function sets up the database schema, yields a session for use in
+    tests, and ensures proper cleanup by closing the session and disposing of the
+    engine after use.
+
+    Yields:
+        alch.Session: A SQLAlchemy session connected to an in-memory SQLite database.
+    """
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -49,143 +69,92 @@ def add_test_book(
 @pytest.fixture(name="case")
 def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     case = request.param
-    add_test_series(case.series, case.series_metadata, db)
-    add_test_book(case.book, case.book_metadata, db)
+    add_test_series(case.data.series, case.data.series_metadata, db)
+    add_test_book(case.data.book, case.data.book_metadata, db)
     db.commit()
     return case
 
 
-# get_release_year
+# ---- get_release_year ----
 @pytest.mark.parametrize(
-    ("case", "expected", "log"),
-    [
-        (
-            td.GET_RELEASE_YEAR_SUCCESS["case"],
-            td.GET_RELEASE_YEAR_SUCCESS["expected"],
-            td.GET_RELEASE_YEAR_SUCCESS["log"],
-        ),
-    ],
-    indirect=["case"],
-    ids=["Test Get Release Year Success"],
+    "case",
+    td.GET_RELEASE_YEAR_SUCCESS,
+    ids=[case.id for case in td.GET_RELEASE_YEAR_SUCCESS],
+    indirect=True,
 )
 def test_get_release_year_success(
-    case: dict,
-    expected: str,
-    log: str,
-    db: alch.Session,
+    case: td.TestCase,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    result = main.get_release_year(case.series)
-    assert result == expected
-    assert log in caplog.text
+    result = main.get_release_year(case.data.series)
+    assert result == case.expected
+    assert case.log in caplog.text
 
 
 @pytest.mark.parametrize(
-    ("case", "log"),
-    [
-        (
-            td.NO_FIRST_ISSUE_NO_YEAR["case"],
-            td.NO_FIRST_ISSUE_NO_YEAR["log"],
-        ),
-        (
-            td.EMPTY_RELEASE_DATE["case"],
-            td.EMPTY_RELEASE_DATE["log"],
-        ),
-    ],
-    indirect=["case"],
-    ids=["No First Issue No Year", "Empty Release Date"],
+    "case",
+    td.GET_RELEASE_YEAR_ERROR,
+    ids=[case.id for case in td.GET_RELEASE_YEAR_ERROR],
+    indirect=True,
 )
 def test_get_release_year_error(
-    case: dict,
-    log: str,
-    db: alch.Session,
+    case: td.TestCase,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
-    with pytest.raises(ValueError, match=re.escape(log)):
-        main.get_release_year(case.series)
+    caplog.set_level(logging.INFO)
+    with pytest.raises(ValueError, match=re.escape(case.log)):
+        main.get_release_year(case.data.series)
 
 
 @pytest.mark.parametrize(
-    ("case", "user_input", "expected"),
-    [
-        (
-            td.NO_FIRST_ISSUE["case"],
-            td.NO_FIRST_ISSUE["user_input"],
-            td.NO_FIRST_ISSUE["expected"],
-        ),
-    ],
-    indirect=["case"],
-    ids=["No First Issue (Input)"],
+    "case",
+    td.GET_RELEASE_YEAR_INPUT,
+    ids=[case.id for case in td.GET_RELEASE_YEAR_INPUT],
+    indirect=True,
 )
 def test_get_release_year_input(
-    case: dict,
-    user_input: str,
-    expected: str,
-    db: alch.Session,
+    case: td.TestCase,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def mock_input(prompt: str) -> str:
-        return user_input
+        return case.user_input
 
     monkeypatch.setattr("builtins.input", mock_input)
-    result = main.get_release_year(case.series)
-    assert result == expected
+    result = main.get_release_year(case.data.series)
+    assert result == case.expected
 
 
-# make_korrection
+# ---- make_korrection ----
 @pytest.mark.parametrize(
-    ("case", "expected", "log"),
-    [
-        (
-            td.MAKE_KORRECTION_SUCCESS["case"],
-            td.MAKE_KORRECTION_SUCCESS["expected"],
-            td.MAKE_KORRECTION_SUCCESS["log"],
-        ),
-        (
-            td.SINGLE_QUOTE_TITLE["case"],
-            td.SINGLE_QUOTE_TITLE["expected"],
-            td.SINGLE_QUOTE_TITLE["log"],
-        ),
-    ],
-    indirect=["case"],
-    ids=["Make Korrection Success", "Single Quote Title"],
+    "case",
+    td.MAKE_KORRECTION_SUCCESS,
+    ids=[case.id for case in td.MAKE_KORRECTION_SUCCESS],
+    indirect=True,
 )
 def test_make_korrection_success(
-    case: dict,
-    expected: str,
-    log: str,
+    case: td.TestCase,
     db: alch.Session,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    main.make_korrection(case.series)
-    result = db.query(SeriesMetadata).filter_by(series_id=case.series.id).first().title
-    assert result == expected
-    assert log in caplog.text
+    main.make_korrection(case.data.series)
+    result = (
+        db.query(SeriesMetadata).filter_by(series_id=case.data.series.id).first().title
+    )
+    assert result == case.expected
+    assert case.log in caplog.text
 
 
 @pytest.mark.parametrize(
-    ("case", "log"),
-    [
-        (
-            td.ALREADY_CORRECT["case"],
-            td.ALREADY_CORRECT["log"],
-        ),
-        (
-            td.MANUAL_LOCK["case"],
-            td.MANUAL_LOCK["log"],
-        ),
-    ],
-    indirect=["case"],
-    ids=["Already Correct", "Manual Lock"],
+    "case",
+    td.MAKE_KORRECTION_ERROR,
+    ids=[case.id for case in td.MAKE_KORRECTION_ERROR],
+    indirect=True,
 )
-def test_make_korrection_error(
-    case: dict,
-    log: str,
-    db: alch.Session,
-) -> None:
-    with pytest.raises(ValueError, match=re.escape(log)):
-        main.make_korrection(case.series)
+def test_make_korrection_error(case: td.TestCase) -> None:
+    with pytest.raises(ValueError, match=re.escape(case.log)):
+        main.make_korrection(case.data.series)
 
 
 def xml_files_equal(path1: Path, path2: Path) -> bool:
@@ -206,22 +175,18 @@ def xml_files_equal(path1: Path, path2: Path) -> bool:
     return etree.tostring(tree1, method="c14n") == etree.tostring(tree2, method="c14n")
 
 
+# ---- korrect_comic_info ----
 @pytest.mark.parametrize(
-    ("path", "expected"),
-    [
-        (
-            td.NORMAL_COMIC_INFO["path"],
-            td.NORMAL_COMIC_INFO["expected"],
-        ),
-    ],
-    ids=["Normal Comic Info"],
+    "case",
+    td.KORRECT_COMIC_INFO_SUCCESS,
+    ids=[case.id for case in td.KORRECT_COMIC_INFO_SUCCESS],
 )
-def test_korrect_comic_info_success(path: str, expected: str) -> None:
+def test_korrect_comic_info_success(case: td.TestCase) -> None:
     # Arrange
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
-        copied_path = tmpdir / Path(path).name
-        shutil.copy(path, copied_path)
+        copied_path = tmpdir / Path(case.path).name
+        shutil.copy(case.path, copied_path)
 
         # Act
         main.korrect_comic_info(copied_path, False)
@@ -231,53 +196,32 @@ def test_korrect_comic_info_success(path: str, expected: str) -> None:
             extracted_path = tmpdir / "ComicInfo.xml"
 
         # Assert
-        assert xml_files_equal(extracted_path, Path(expected))
+        assert xml_files_equal(extracted_path, Path(case.expected))
 
 
 @pytest.mark.parametrize(
-    ("path", "expected", "log"),
-    [
-        (
-            td.ALREADY_CORRECT_COMIC_INFO["path"],
-            td.ALREADY_CORRECT_COMIC_INFO["expected"],
-            td.ALREADY_CORRECT_COMIC_INFO["log"],
-        ),
-        (
-            td.NO_CBZ_FILE["path"],
-            td.NO_CBZ_FILE["expected"],
-            td.NO_CBZ_FILE["log"],
-        ),
-        (
-            td.NO_COMIC_INFO_XML["path"],
-            td.NO_COMIC_INFO_XML["expected"],
-            td.NO_COMIC_INFO_XML["log"],
-        ),
-    ],
-    ids=["Already Correct Comic Info", "No CBZ File", "No ComicInfo.xml"],
+    "case",
+    td.KORRECT_COMIC_INFO_ERROR,
+    ids=[case.id for case in td.KORRECT_COMIC_INFO_ERROR],
 )
-def test_korrect_comic_info_error(
-    path: str,
-    expected: str,
-    log: str,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
+def test_korrect_comic_info_error(case: td.TestCase) -> None:
     # must check for non-existent cbz care first
-    if not Path(path).exists():
-        with pytest.raises(FileNotFoundError, match=re.escape(log)):
-            main.korrect_comic_info(Path(path), False)
+    if not Path(case.path).exists():
+        with pytest.raises(FileNotFoundError, match=re.escape(case.log)):
+            main.korrect_comic_info(Path(case.path), False)
         return
     # Arrange
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
-        copied_path = tmpdir / Path(path).name
-        shutil.copy(path, copied_path)
+        copied_path = tmpdir / Path(case.path).name
+        shutil.copy(case.path, copied_path)
 
         # Act
-        with pytest.raises((ValueError, FileNotFoundError), match=log):
+        with pytest.raises((ValueError, FileNotFoundError), match=case.log):
             main.korrect_comic_info(copied_path, False)
         # Extract the new ComicInfo.xml to compare
-        if expected:
+        if case.expected:
             with zipfile.ZipFile(copied_path, "r") as cbz:
                 cbz.extract("ComicInfo.xml", path=tmpdir)
                 extracted_path = tmpdir / "ComicInfo.xml"
-                assert xml_files_equal(extracted_path, Path(expected))
+                assert xml_files_equal(extracted_path, Path(case.expected))

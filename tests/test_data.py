@@ -62,118 +62,144 @@ def create_test_book_metadata(
 
 
 @dataclass
-class SeriesTestCase:
+class SeriesTestData:
     series: Series
     series_metadata: SeriesMetadata
     book: Book
     book_metadata: BookMetadata
 
 
+@dataclass
+class TestCase:
+    id: str
+    data: SeriesTestData | None = None
+    expected: str | None = None
+    user_input: str | None = None
+    log: str | None = None
+    path: str | None = None
+
+
 # ---- get_release_year ----
-# test_get_release_year_success
-GET_RELEASE_YEAR_SUCCESS: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(),
+GET_RELEASE_YEAR_SUCCESS: Final[list[TestCase]] = [
+    TestCase(
+        id="get_release_year: success",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(),
+            create_test_book(),
+            create_test_book_metadata(),
+        ),
+        expected=TEST_YEAR,
+        log="",
     ),
-    "expected": TEST_YEAR,
-    "log": "",
-}
-# test_get_release_year_error
-NO_FIRST_ISSUE_NO_YEAR: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(name=ERROR_SERIES_NAME),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(number="100"),
+]
+GET_RELEASE_YEAR_ERROR: Final[list[TestCase]] = [
+    TestCase(
+        id="get_release_year: no first issue no year",
+        data=SeriesTestData(
+            create_test_series(name=ERROR_SERIES_NAME),
+            create_test_series_metadata(),
+            create_test_book(),
+            create_test_book_metadata(number="100"),
+        ),
+        log=f"No first issue, or year, found in {ERROR_SERIES_NAME}",
     ),
-    "log": f"No first issue, or year, found in {ERROR_SERIES_NAME}",
-}
-EMPTY_RELEASE_DATE: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(release_date="    "),
+    TestCase(
+        id="get_release_year: empty release date",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(),
+            create_test_book(),
+            create_test_book_metadata(release_date="    "),
+        ),
+        log=f"Invalid release date for {TEST_SERIES_NAME}:     ",
     ),
-    "log": f"Invalid release date for {TEST_SERIES_NAME}:     ",
-}
-# test_get_release_year_input
-NO_FIRST_ISSUE: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(number="100"),
+]
+GET_RELEASE_YEAR_INPUT: Final[list[TestCase]] = [
+    TestCase(
+        id="get_release_year: no first issue",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(),
+            create_test_book(),
+            create_test_book_metadata(number="100"),
+        ),
+        expected="1999",
     ),
-    "user_input": None,
-    "expected": "1999",
-}
+]
 
 # ---- make_korrection ----
-# test_make_korrection_success
-MAKE_KORRECTION_SUCCESS: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(),
+MAKE_KORRECTION_SUCCESS: Final[list[TestCase]] = [
+    TestCase(
+        id="make_korrection: success",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(),
+            create_test_book(),
+            create_test_book_metadata(),
+        ),
+        expected=GOOD_TITLE,
+        log=f"({BAD_TITLE}) -> ({GOOD_TITLE})",
     ),
-    "expected": GOOD_TITLE,
-    "log": f"({BAD_TITLE}) -> ({GOOD_TITLE})",
-}
-# Title with single quotes
-SINGLE_QUOTE_TITLE: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(name="Test's Series v1 (1999)"),
-        create_test_series_metadata(title="Test's Series"),
-        create_test_book(),
-        create_test_book_metadata(),
+    TestCase(
+        id="make_korrection: success with single quote",
+        data=SeriesTestData(
+            create_test_series(name="Test's Series v1 (1999)"),
+            create_test_series_metadata(title="Test's Series"),
+            create_test_book(),
+            create_test_book_metadata(),
+        ),
+        expected="Test's Series (1999)",
+        log="(Test's Series) -> (Test's Series (1999))",
     ),
-    "expected": "Test's Series (1999)",
-    "log": "(Test's Series) -> (Test's Series (1999))",
-}
+]
 # test_make_korrection_error
-ALREADY_CORRECT: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(title=GOOD_TITLE),
-        create_test_book(),
-        create_test_book_metadata(),
+MAKE_KORRECTION_ERROR: Final[list[TestCase]] = [
+    TestCase(
+        id="make_korrection: already correct",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(title=GOOD_TITLE),
+            create_test_book(),
+            create_test_book_metadata(),
+        ),
+        log=f"{TEST_SERIES_NAME} is already correct [{GOOD_TITLE}]",
     ),
-    "log": f"{TEST_SERIES_NAME} is already correct [{GOOD_TITLE}]",
-}
-MANUAL_LOCK: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(title_lock=True),
-        create_test_book(),
-        create_test_book_metadata(),
+    TestCase(
+        id="make_korrection: manual lock",
+        data=SeriesTestData(
+            create_test_series(),
+            create_test_series_metadata(title_lock=True),
+            create_test_book(),
+            create_test_book_metadata(),
+        ),
+        log=f"{TEST_SERIES_NAME} is manually locked by user.",
     ),
-    "log": f"{TEST_SERIES_NAME} is manually locked by user.",
-}
+]
 
 # ---- korrect_comic_info ----
-# test korrect_comic_info_success
-NORMAL_COMIC_INFO: Final[dict] = {
-    "path": TEST_CBZ_PATH,
-    "expected": GOOD_COMIC_INFO,
-}
-# test korrect_comic_info_error
-ALREADY_CORRECT_COMIC_INFO: Final[dict] = {
-    "path": KORRECTED_COMIC_PATH,
-    "expected": KORRECTED_COMIC_INFO_PATH,
-    "log": "is already correct",
-}
-NO_CBZ_FILE: Final[dict] = {
-    "path": "tests/test_assets/does_not_exist.cbz",
-    "expected": None,
-    "log": "No cbz found for",
-}
-NO_COMIC_INFO_XML: Final[dict] = {
-    "path": NO_COMIC_INFO_PATH,
-    "expected": None,
-    "log": "No ComicInfo.xml found in",
-}
+KORRECT_COMIC_INFO_SUCCESS: Final[list[TestCase]] = [
+    TestCase(
+        id="korrect_comic_info: normal comic info",
+        path=TEST_CBZ_PATH,
+        expected=GOOD_COMIC_INFO,
+    ),
+]
+KORRECT_COMIC_INFO_ERROR: Final[list[TestCase]] = [
+    TestCase(
+        id="korrect_comic_info: already correct comic info",
+        path=KORRECTED_COMIC_PATH,
+        expected=KORRECTED_COMIC_INFO_PATH,
+        log="is already correct",
+    ),
+    TestCase(
+        id="korrect_comic_info: no cbz file",
+        path="tests/test_assets/does_not_exist.cbz",
+        log="No cbz found for",
+    ),
+    TestCase(
+        id="korrect_comic_info: no ComicInfo.xml",
+        path=NO_COMIC_INFO_PATH,
+        log="No ComicInfo.xml found in",
+    ),
+]
