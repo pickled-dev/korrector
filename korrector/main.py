@@ -34,6 +34,73 @@ from .orm import Book, BookMetadata, Series
 logger = logging.getLogger(__name__)
 
 
+def copy_share_to_sort(
+    share_root: Path = Path("/data/dc++"),
+    library_root: Path = Path("/data/print/comics"),
+    sort_root: Path = Path("/data/to-sort"),
+    dry_run: bool = False,
+) -> None:
+    """Copy files not present in library from share to temp directory, mirror structure.
+
+    This function iterates over all directories in the DC++ root directory, and copies
+    comic files (.cbz) to a temporary directory for sorting. It mirrors the directory
+    structure of the DC++ root directory in the temporary directory. If a folder in the
+    DC++ root directory has the same or more comic files than the corresponding folder
+    in the library root directory, that folder is skipped. The files are copied with
+    their original filenames from the DC++ share.
+
+    Args:
+        share_root (Path): Root of the DC++ share.
+        library_root (Path): Root of the main comics library.
+        sort_root (Path): Root of the to-sort folder.
+        dry_run (bool): If True, do not actually copy files.
+
+    Notes:
+        - Only folders with comic files (.cbz, .cbr, .pdf) are considered.
+        - If the corresponding library folder has the same or more comic files,
+          that folder is skipped.
+        - Files are copied with their DC++ filenames.
+
+    """
+    # iterate over all directories in the DC++ root
+    for dirpath, filenames in pathlib.Path(share_root).iterdir():
+        comic_files = [f for f in filenames if f.lower().endswith(".cbz")]
+        if not comic_files:
+            continue
+
+        # build the full paths for the library and to-sort directories
+        rel_path = Path(dirpath).relative_to(share_root)
+        library_path = library_root / rel_path
+        to_sort_path = sort_root / rel_path
+
+        # recursivley add all cbz files in mirrored library directory to a list
+        library_files = [
+            f
+            for f in pathlib.Path(library_path).iterdir()
+            if f.lower().endswith(".cbz")
+        ]
+        if len(library_files) >= len(comic_files):
+            logger.info(
+                "Skipping folder %s: library has %d files, DC++ has %d",
+                rel_path,
+                len(library_files),
+                len(comic_files),
+            )
+            continue
+
+        if not dry_run:
+            to_sort_path.mkdir(parents=True, exist_ok=True)
+
+        # copy files from DC++ to the to-sort directory
+        for fname in comic_files:
+            src = Path(dirpath) / fname
+            dst = to_sort_path / fname
+            if not dst.exists():
+                logger.info("Copying %s -> %s", src, dst)
+            if not dry_run:
+                shutil.copy2(src, dst)
+
+
 def backup(komga_db_path: str, komga_backup: str) -> None:
     """Backup the Komga database to a specified backup path.
 

@@ -21,6 +21,33 @@ def main() -> None:
         default=None,
         help="Path to Komga database file",
     )
+
+    # ---- Copy Share ----
+    copy_share_parser = parser.add_argument_group(
+        "Copy Share",
+        help="Options for copying files from DC++ share to sort directory",
+    )
+    copy_share_parser.add_argument(
+        "-s",
+        "--share-root",
+        help="Root of the DC++ share",
+    )
+    copy_share_parser.add_argument(
+        "-l",
+        "--library-root",
+        help="Root of the main comics library",
+    )
+    copy_share_parser.add_argument(
+        "-s",
+        "--sort-root",
+        help="Root of the to-sort folder",
+    )
+    copy_share_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry run without making changes",
+    )
+
     parser.add_argument(
         "-v",
         "--verbose",
