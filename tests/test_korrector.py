@@ -76,7 +76,7 @@ def test_get_release_year(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    result = main.get_release_year(setup_test_data["series"])
+    result = main.get_release_year(setup_test_data.series)
     assert result == expected
     assert log in caplog.text
 
@@ -102,7 +102,7 @@ def test_get_release_year_error(
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.get_release_year(setup_test_data["series"])
+        main.get_release_year(setup_test_data.series)
 
 
 @pytest.mark.parametrize(
@@ -128,7 +128,7 @@ def test_get_release_year_input(
         return user_input
 
     monkeypatch.setattr("builtins.input", mock_input)
-    result = main.get_release_year(setup_test_data["series"])
+    result = main.get_release_year(setup_test_data.series)
     assert result == expected
 
 
@@ -153,10 +153,10 @@ def test_make_korrection(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    main.make_korrection(setup_test_data["series"])
+    main.make_korrection(setup_test_data.series)
     result = (
         db.query(SeriesMetadata)
-        .filter_by(series_id=setup_test_data["series"].id)
+        .filter_by(series_id=setup_test_data.series.id)
         .first()
         .title
     )
@@ -185,7 +185,7 @@ def test_make_korrection_error(
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.make_korrection(setup_test_data["series"])
+        main.make_korrection(setup_test_data.series)
 
 
 # korrect comic info
@@ -216,7 +216,7 @@ def test_korrect_comic_info(
         db.commit()
 
         # Act
-        main.korrect_comic_info(setup_test_data["series"], db, False)
+        main.korrect_comic_info(setup_test_data.series, db, False)
         with zipfile.ZipFile(copied, "r") as cbz:
             cbz.extract("ComicInfo.xml", tmpdir)
         tree_result = etree.parse(f"{tmpdir}/ComicInfo.xml")
@@ -270,7 +270,7 @@ def test_korrect_comic_info_error(
     # CASE: File does not exist
     if not original.exists():
         with pytest.raises(FileNotFoundError, match=re.escape(expected)):
-            main.korrect_comic_info_database(setup_test_data["series"], db, False)
+            main.korrect_comic_info_database(setup_test_data.series, db, False)
         return
 
     # Arrange
@@ -284,7 +284,7 @@ def test_korrect_comic_info_error(
 
         # Act & Assert
         try:
-            main.korrect_comic_info_database(setup_test_data["series"], db, False)
+            main.korrect_comic_info_database(setup_test_data.series, db, False)
         except (ValueError, FileNotFoundError) as e:
             assert expected in str(e)
         else:
