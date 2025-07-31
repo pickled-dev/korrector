@@ -49,8 +49,8 @@ def add_test_book(
 @pytest.fixture(name="case")
 def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     case = request.param
-    add_test_series(case["series"], case["series_metadata"], db)
-    add_test_book(case["book"], case["book_metadata"], db)
+    add_test_series(case.series, case.series_metadata, db)
+    add_test_book(case.book, case.book_metadata, db)
     db.commit()
     return case
 
