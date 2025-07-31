@@ -53,6 +53,9 @@ class TestCase:
     user_input: str | None = None
     log: str | None = None
     path: str | None = None
+    share_files: dict[str, str] | None = None
+    library_files: dict[str, str] | None = None
+    dry_run: bool = False
 
 
 # ---- get_release_year ----
@@ -129,7 +132,6 @@ MAKE_KORRECTION_SUCCESS: Final[list[TestCase]] = [
         log="(Test's Series) -> (Test's Series (1999))",
     ),
 ]
-# test_make_korrection_error
 MAKE_KORRECTION_ERROR: Final[list[TestCase]] = [
     TestCase(
         id="make_korrection: already correct",
@@ -177,5 +179,30 @@ KORRECT_COMIC_INFO_ERROR: Final[list[TestCase]] = [
         id="korrect_comic_info: no ComicInfo.xml",
         path=tc.NO_COMIC_INFO_PATH,
         log="No ComicInfo.xml found in",
+    ),
+]
+
+# ---- copy_share ----
+COPY_SHARE_SUCCESS: Final[list[TestCase]] = [
+    TestCase(
+        id="copy_share: success",
+        share_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
+        library_files={"Marvel/A.cbz": "a"},
+        expected={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
+        dry_run=False,
+    ),
+    TestCase(
+        id="copy_share: dry run does not copy",
+        share_files={"Marvel/A.cbz": "a"},
+        library_files={},
+        expected={},
+        dry_run=True,
+    ),
+    TestCase(
+        id="copy_share: skip folder with more files",
+        share_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
+        library_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b", "Marvel/C.cbz": "c"},
+        expected={},
+        dry_run=False,
     ),
 ]

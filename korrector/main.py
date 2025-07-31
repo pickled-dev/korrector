@@ -55,46 +55,43 @@ def copy_share_to_sort(
         sort_root (Path): Root of the to-sort folder.
         dry_run (bool): If True, do not actually copy files.
 
-    Notes:
-        - Only folders with comic files (.cbz, .cbr, .pdf) are considered.
-        - If the corresponding library folder has the same or more comic files,
-          that folder is skipped.
-        - Files are copied with their DC++ filenames.
-
     """
     # iterate over all directories in the DC++ root
-    for dirpath, filenames in pathlib.Path(share_root).iterdir():
-        comic_files = [f for f in filenames if f.lower().endswith(".cbz")]
-        if not comic_files:
+    for path in pathlib.Path(share_root).iterdir():
+        if not path.is_dir():
             continue
 
         # build the full paths for the library and to-sort directories
-        rel_path = Path(dirpath).relative_to(share_root)
-        library_path = library_root / rel_path
-        to_sort_path = sort_root / rel_path
+        rel_path = Path(path).relative_to(share_root)
+        lib_path = pathlib.Path(library_root / rel_path)
+        sort_path = sort_root / rel_path
 
-        # recursivley add all cbz files in mirrored library directory to a list
-        library_files = [
-            f
-            for f in pathlib.Path(library_path).iterdir()
-            if f.lower().endswith(".cbz")
+        # check if the library has more or equal files than the DC++ share
+        dc_files = [
+            f.name for f in path.iterdir() if f.is_file() and f.suffix == ".cbz"
         ]
-        if len(library_files) >= len(comic_files):
+        if lib_path.exists():
+            lib_files = [
+                f.name for f in lib_path.iterdir() if f.is_file() and f.suffix == ".cbz"
+            ]
+        else:
+            lib_files = []
+        if len(lib_files) >= len(dc_files):
             logger.info(
                 "Skipping folder %s: library has %d files, DC++ has %d",
                 rel_path,
-                len(library_files),
-                len(comic_files),
+                len(lib_files),
+                len(dc_files),
             )
             continue
 
         if not dry_run:
-            to_sort_path.mkdir(parents=True, exist_ok=True)
+            sort_path.mkdir(parents=True, exist_ok=True)
 
         # copy files from DC++ to the to-sort directory
-        for fname in comic_files:
-            src = Path(dirpath) / fname
-            dst = to_sort_path / fname
+        for fname in dc_files:
+            src = Path(path) / fname
+            dst = sort_path / fname
             if not dst.exists():
                 logger.info("Copying %s -> %s", src, dst)
             if not dry_run:

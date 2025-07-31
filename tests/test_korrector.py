@@ -225,3 +225,50 @@ def test_korrect_comic_info_error(case: td.TestCase) -> None:
                 cbz.extract("ComicInfo.xml", path=tmpdir)
                 extracted_path = tmpdir / "ComicInfo.xml"
                 assert xml_files_equal(extracted_path, Path(case.expected))
+
+
+@pytest.mark.parametrize(
+    "case",
+    td.COPY_SHARE_SUCCESS,
+    ids=[case.id for case in td.COPY_SHARE_SUCCESS],
+)
+def test_copy_share_success(
+    case: td.TestCase,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+
+    # Arrange
+    def _create_files(root: Path, files: dict) -> None:
+        for rel_path, content in files.items():
+            file_path = root / rel_path
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(content)
+
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdir = Path(tmpdirname)
+        share_root = tmpdir / "share"
+        library_root = tmpdir / "library"
+        sort_root = tmpdir / "sort"
+        share_root.mkdir()
+        library_root.mkdir()
+        sort_root.mkdir()
+
+        _create_files(share_root, case.share_files)
+        _create_files(library_root, case.library_files)
+
+        # Act
+        main.copy_share_to_sort(share_root, library_root, sort_root, case.dry_run)
+
+        # Assert
+        for rel_path in case.expected:
+            assert (sort_root / rel_path).exists(), (
+                f"{rel_path} should exist in sort_root"
+            )
+        all_expected = set(case.expected.keys())
+        all_actual = {
+            str(p.relative_to(sort_root)) for p in sort_root.rglob("*") if p.is_file()
+        }
+        assert all_actual == all_expected, (
+            f"Expected files: {all_expected}, found: {all_actual}"
+        )
