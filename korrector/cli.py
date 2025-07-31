@@ -31,7 +31,6 @@ def main() -> None:
         "-o",
         "--comicinfo-oneshots",
         dest="oneshots",
-        action="store_true",
         help="Adjust fields inside ComicInfo.xml of cbz in target dir to allow Komga CBL import to find one-shots",
     )
     parser.add_argument(
