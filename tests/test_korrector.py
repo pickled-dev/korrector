@@ -60,13 +60,13 @@ def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     ("case", "expected", "log"),
     [
         (
-            td.VALID_SERIES["case"],
-            td.VALID_SERIES["expected"],
-            td.VALID_SERIES["log"],
+            td.GET_RELEASE_YEAR_SUCCESS["case"],
+            td.GET_RELEASE_YEAR_SUCCESS["expected"],
+            td.GET_RELEASE_YEAR_SUCCESS["log"],
         ),
     ],
     indirect=["case"],
-    ids=["valid_series"],
+    ids=["Test Get Release Year Success"],
 )
 def test_get_release_year(
     case: dict,
@@ -94,7 +94,7 @@ def test_get_release_year(
         ),
     ],
     indirect=["case"],
-    ids=["no_first_issue_no_year", "empty_release_date"],
+    ids=["No First Issue No Year", "Empty Release Date"],
 )
 def test_get_release_year_error(
     case: dict,
@@ -115,7 +115,7 @@ def test_get_release_year_error(
         ),
     ],
     indirect=["case"],
-    ids=["no_first_issue"],
+    ids=["No First Issue (Input)"],
 )
 def test_get_release_year_input(
     case: dict,
@@ -137,15 +137,15 @@ def test_get_release_year_input(
     ("case", "expected", "log"),
     [
         (
-            td.STANDARD_KORRECTION["case"],
-            td.STANDARD_KORRECTION["expected"],
-            td.STANDARD_KORRECTION["log"],
+            td.MAKE_KORRECTION_SUCCESS["case"],
+            td.MAKE_KORRECTION_SUCCESS["expected"],
+            td.MAKE_KORRECTION_SUCCESS["log"],
         ),
     ],
     indirect=["case"],
-    ids=["standard_korrection"],
+    ids=["Make Korrection Success"],
 )
-def test_make_korrection(
+def test_make_korrection_success(
     case: dict,
     expected: str,
     log: str,
@@ -172,7 +172,7 @@ def test_make_korrection(
         ),
     ],
     indirect=["case"],
-    ids=["already_correct", "manual_lock"],
+    ids=["Already Correct", "Manual Lock"],
 )
 def test_make_korrection_error(
     case: dict,
