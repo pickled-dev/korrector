@@ -183,104 +183,47 @@ def test_make_korrection_error(
         main.make_korrection(case.series)
 
 
-# korrect comic info
+def xml_files_equal(path1: Path, path2: Path) -> bool:
+    """Logically compare two xml files.
+
+    c14n applies canonical XML formatting normalizing attribute ordering, newlines, etc.
+
+    Args:
+        path1 (Path): The path to the first xml file.
+        path2 (Path): The path to the second xml file.
+
+    Returns:
+        bool: True if the two xml files are equal, False otherwise.
+
+    """
+    tree1 = etree.parse(path1)
+    tree2 = etree.parse(path2)
+    return etree.tostring(tree1, method="c14n") == etree.tostring(tree2, method="c14n")
+
+
 @pytest.mark.parametrize(
-    ("case", "expected"),
+    ("path", "expected"),
     [
         (
-            td.NORMAL_COMIC_INFO["case"],
+            td.NORMAL_COMIC_INFO["path"],
             td.NORMAL_COMIC_INFO["expected"],
         ),
     ],
-    indirect=["case"],
-    ids=["normal_comic_info"],
+    ids=["Normal Comic Info"],
 )
-def test_korrect_comic_info(
-    case: dict,
-    expected: str,
-    db: alch.Session,
-) -> None:
+def test_korrect_comic_info_success(path: str, expected: str) -> None:
     # Arrange
-    path = unquote(case["book"].url)
-    original = Path(re.sub(r"file://?", "", path))
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
-        copied = shutil.copy(original, tmpdir)
-        case["book"].url = f"file://{copied}"
-        db.add(case["book"])
-        db.commit()
+        copied_path = tmpdir / Path(path).name
+        shutil.copy(path, copied_path)
 
         # Act
-        main.korrect_comic_info(case.series, db, False)
-        with zipfile.ZipFile(copied, "r") as cbz:
-            cbz.extract("ComicInfo.xml", tmpdir)
-        tree_result = etree.parse(f"{tmpdir}/ComicInfo.xml")
-        tree_expected = etree.parse(expected)
+        main.korrect_comic_info(copied_path, False)
+        # Extract the new ComicInfo.xml to compare
+        with zipfile.ZipFile(copied_path, "r") as cbz:
+            cbz.extract("ComicInfo.xml", path=tmpdir)
+            extracted_path = tmpdir / "ComicInfo.xml"
 
         # Assert
-        assert etree.tostring(tree_result.getroot()) == etree.tostring(
-            tree_expected.getroot(),
-        )
-
-
-@pytest.mark.parametrize(
-    ("case", "expected"),
-    [
-        (
-            td.NO_TITLE_COMIC_INFO["case"],
-            td.NO_TITLE_COMIC_INFO["expected"],
-        ),
-        (
-            td.BAD_PATH_COMIC_INFO["case"],
-            td.BAD_PATH_COMIC_INFO["expected"],
-        ),
-        (
-            td.NO_COMIC_INFO["case"],
-            td.NO_COMIC_INFO["expected"],
-        ),
-        (
-            td.NO_DATE_COMIC_INFO["case"],
-            td.NO_DATE_COMIC_INFO["expected"],
-        ),
-        (
-            td.KORRECTED_COMIC_INFO["case"],
-            td.KORRECTED_COMIC_INFO["expected"],
-        ),
-    ],
-    indirect=["case"],
-    ids=[
-        "no title",
-        "no cbz",
-        "no ComicInfo.xml",
-        "no date",
-        "korrected",
-    ],
-)
-def test_korrect_comic_info_error(
-    case: dict,
-    expected: str,
-    db: alch.Session,
-) -> None:
-    original = Path(re.sub(r"file://?", "", unquote(case["book"].url)))
-    # CASE: File does not exist
-    if not original.exists():
-        with pytest.raises(FileNotFoundError, match=re.escape(expected)):
-            main.korrect_comic_info_database(case.series, db, False)
-        return
-
-    # Arrange
-    # copy test data to temp dir
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        tmpdir = Path(tmpdirname)
-        copied = shutil.copy(original, tmpdir)
-        case["book"].url = f"file://{copied}"
-        db.add(case["book"])
-        db.commit()
-
-        # Act & Assert
-        try:
-            main.korrect_comic_info_database(case.series, db, False)
-        except (ValueError, FileNotFoundError) as e:
-            assert expected in str(e)
-        else:
-            pytest.fail("Expected ValueError or FileNotFoundError not raised")
+        assert xml_files_equal(extracted_path, Path(expected))

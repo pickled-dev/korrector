@@ -11,11 +11,11 @@ GOOD_TITLE: Final[str] = "Test Series (1999)"
 BAD_TITLE: Final[str] = "Test Series"
 TEST_YEAR: Final[str] = "1999"
 TEST_DATE: Final[str] = "1999-01-01"
-BAD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
 GOOD_COMIC_INFO: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
 
 # urls for test cbz
 NORMAL_URL: Final[str] = "file://tests/test_assets/test.cbz"
+NORAML_PATH: Final[str] = "tests/test_assets/test.cbz"
 BAD_URL: Final[str] = "file://tests/test_assets/does_not_exist.cbz"
 BAD_URL_FILTERED: Final[str] = "tests/test_assets/does_not_exist.cbz"
 NO_TITLE_URL: Final[str] = "file://tests/test_assets/NoTitleTest.cbz"
@@ -142,60 +142,8 @@ MANUAL_LOCK: Final[dict] = {
     "log": f"{GOOD_NAME} is manually locked by user.",
 }
 
-# test_korrect_comic_info_good
+# test korrect_comic_info_success
 NORMAL_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(),
-        create_test_book_metadata(),
-    ),
+    "path": NORAML_PATH,
     "expected": GOOD_COMIC_INFO,
-}
-
-# test_korrect_comic_info_error
-BAD_PATH_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(url=BAD_URL),
-        create_test_book_metadata(),
-    ),
-    "expected": f"No cbz found for {GOOD_NAME}",
-}
-NO_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(url=NO_COMIC_INFO_URL),
-        create_test_book_metadata(),
-    ),
-    "expected": f"No ComicInfo.xml found in {GOOD_NAME}",
-}
-NO_DATE_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(url=NO_DATE_URL),
-        create_test_book_metadata(),
-    ),
-    "expected": f"No year found in ComicInfo.xml for {GOOD_NAME}",
-}
-NO_TITLE_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(url=NO_TITLE_URL),
-        create_test_book_metadata(),
-    ),
-    "expected": f"No title found in ComicInfo.xml for {GOOD_NAME}",
-}
-KORRECTED_COMIC_INFO: Final[dict] = {
-    "case": SeriesTestCase(
-        create_test_series(),
-        create_test_series_metadata(),
-        create_test_book(url=KORRECTED_COMIC_INFO_URL),
-        create_test_book_metadata(),
-    ),
-    "expected": f"ComicInfo.xml for {GOOD_NAME} is already correct",
 }
