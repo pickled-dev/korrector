@@ -15,7 +15,12 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Korrector CLI")
-    parser.add_argument("db_path", nargs="?", default=None, help="Path to Komga database file")
+    parser.add_argument(
+        "db_path",
+        nargs="?",
+        default=None,
+        help="Path to Komga database file",
+    )
     parser.add_argument(
         "-v",
         "--verbose",
@@ -31,21 +36,24 @@ def main() -> None:
         "-o",
         "--comicinfo-oneshots",
         dest="oneshots",
-        help="Adjust fields inside ComicInfo.xml of cbz in target dir to allow Komga CBL import to find one-shots",
+        help="Adjust fields inside ComicInfo.xml of cbz in target dir to allow Komga "
+        "CBL import to find one-shots",
     )
     parser.add_argument(
         "-O",
         "--korrect-oneshots",
         dest="korrect_oneshots",
         action="store_true",
-        help="Adjust the tables in the Komga db to allow Komga CBL import to find one-shots",
+        help="Adjust the tables in the Komga db to allow Komga CBL import to find"
+        " one-shots",
     )
     parser.add_argument(
         "-D",
         "--korrect-database",
         dest="korrect_database",
         action="store_true",
-        help="Adjust the tables in the Komga db to facilitate importing reading lists, not including one-shots",
+        help="Adjust the tables in the Komga db to facilitate importing reading lists, "
+        "not including one-shots",
     )
     parser.add_argument(
         "-d",
@@ -60,10 +68,12 @@ def main() -> None:
         help="Accept all default prompts",
     )
     parser.add_argument(
-        "-p",
-        "--prefix",
-        dest="prefix",
-        help="Prefix to substitute in database path",
+        "-r",
+        "--replace",
+        dest="replace",
+        help="comma separated string of path replacements for use with containerized"
+        " installations. Ex. you would pass'data,/data/print/comics' if your container"
+        " mounts /data/print/comics as a volume at /data",
     )
     args = parser.parse_args()
 
@@ -102,7 +112,7 @@ def main() -> None:
         korrect_database_oneshots(
             args.db_path,
             args.dry_run,
-            args.prefix,
+            args.replace,
         )
     sys.exit(0)
 
