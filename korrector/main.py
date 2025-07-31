@@ -338,7 +338,10 @@ def korrect_comic_info_path(
         try:
             korrect_comic_info(cbz, dry_run)
         except (ValueError, FileNotFoundError) as e:
-            logger.warning("%s", e)
+            if "correct" in str(e):
+                logger.debug("%s Skipping.", e)
+            else:
+                logger.warning("%s", e)
             continue
 
 
