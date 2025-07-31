@@ -46,7 +46,7 @@ def add_test_book(
     test_session.add(book_metadata)
 
 
-@pytest.fixture
+@pytest.fixture(name="case")
 def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
     case = request.param
     add_test_series(case["series"], case["series_metadata"], db)
@@ -57,7 +57,7 @@ def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
 
 # get_release_year
 @pytest.mark.parametrize(
-    ("setup_test_data", "expected", "log"),
+    ("case", "expected", "log"),
     [
         (
             td.VALID_SERIES["case"],
@@ -65,24 +65,24 @@ def setup_test_data(request: pytest.FixtureRequest, db: alch.Session) -> dict:
             td.VALID_SERIES["log"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["valid_series"],
 )
 def test_get_release_year(
-    setup_test_data: dict,
+    case: dict,
     expected: str,
     log: str,
     db: alch.Session,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    result = main.get_release_year(setup_test_data.series)
+    result = main.get_release_year(case.series)
     assert result == expected
     assert log in caplog.text
 
 
 @pytest.mark.parametrize(
-    ("setup_test_data", "log"),
+    ("case", "log"),
     [
         (
             td.NO_FIRST_ISSUE_NO_YEAR["case"],
@@ -93,20 +93,20 @@ def test_get_release_year(
             td.EMPTY_RELEASE_DATE["log"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["no_first_issue_no_year", "empty_release_date"],
 )
 def test_get_release_year_error(
-    setup_test_data: dict,
+    case: dict,
     log: str,
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.get_release_year(setup_test_data.series)
+        main.get_release_year(case.series)
 
 
 @pytest.mark.parametrize(
-    ("setup_test_data", "user_input", "expected"),
+    ("case", "user_input", "expected"),
     [
         (
             td.NO_FIRST_ISSUE["case"],
@@ -114,11 +114,11 @@ def test_get_release_year_error(
             td.NO_FIRST_ISSUE["expected"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["no_first_issue"],
 )
 def test_get_release_year_input(
-    setup_test_data: dict,
+    case: dict,
     user_input: str,
     expected: str,
     db: alch.Session,
@@ -128,13 +128,13 @@ def test_get_release_year_input(
         return user_input
 
     monkeypatch.setattr("builtins.input", mock_input)
-    result = main.get_release_year(setup_test_data.series)
+    result = main.get_release_year(case.series)
     assert result == expected
 
 
 # make_korrection
 @pytest.mark.parametrize(
-    ("setup_test_data", "expected", "log"),
+    ("case", "expected", "log"),
     [
         (
             td.STANDARD_KORRECTION["case"],
@@ -142,30 +142,25 @@ def test_get_release_year_input(
             td.STANDARD_KORRECTION["log"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["standard_korrection"],
 )
 def test_make_korrection(
-    setup_test_data: dict,
+    case: dict,
     expected: str,
     log: str,
     db: alch.Session,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    main.make_korrection(setup_test_data.series)
-    result = (
-        db.query(SeriesMetadata)
-        .filter_by(series_id=setup_test_data.series.id)
-        .first()
-        .title
-    )
+    main.make_korrection(case.series)
+    result = db.query(SeriesMetadata).filter_by(series_id=case.series.id).first().title
     assert result == expected
     assert log in caplog.text
 
 
 @pytest.mark.parametrize(
-    ("setup_test_data", "log"),
+    ("case", "log"),
     [
         (
             td.ALREADY_CORRECT["case"],
@@ -176,47 +171,47 @@ def test_make_korrection(
             td.MANUAL_LOCK["log"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["already_correct", "manual_lock"],
 )
 def test_make_korrection_error(
-    setup_test_data: dict,
+    case: dict,
     log: str,
     db: alch.Session,
 ) -> None:
     with pytest.raises(ValueError, match=re.escape(log)):
-        main.make_korrection(setup_test_data.series)
+        main.make_korrection(case.series)
 
 
 # korrect comic info
 @pytest.mark.parametrize(
-    ("setup_test_data", "expected"),
+    ("case", "expected"),
     [
         (
             td.NORMAL_COMIC_INFO["case"],
             td.NORMAL_COMIC_INFO["expected"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=["normal_comic_info"],
 )
 def test_korrect_comic_info(
-    setup_test_data: dict,
+    case: dict,
     expected: str,
     db: alch.Session,
 ) -> None:
     # Arrange
-    path = unquote(setup_test_data["book"].url)
+    path = unquote(case["book"].url)
     original = Path(re.sub(r"file://?", "", path))
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
         copied = shutil.copy(original, tmpdir)
-        setup_test_data["book"].url = f"file://{copied}"
-        db.add(setup_test_data["book"])
+        case["book"].url = f"file://{copied}"
+        db.add(case["book"])
         db.commit()
 
         # Act
-        main.korrect_comic_info(setup_test_data.series, db, False)
+        main.korrect_comic_info(case.series, db, False)
         with zipfile.ZipFile(copied, "r") as cbz:
             cbz.extract("ComicInfo.xml", tmpdir)
         tree_result = etree.parse(f"{tmpdir}/ComicInfo.xml")
@@ -229,7 +224,7 @@ def test_korrect_comic_info(
 
 
 @pytest.mark.parametrize(
-    ("setup_test_data", "expected"),
+    ("case", "expected"),
     [
         (
             td.NO_TITLE_COMIC_INFO["case"],
@@ -252,7 +247,7 @@ def test_korrect_comic_info(
             td.KORRECTED_COMIC_INFO["expected"],
         ),
     ],
-    indirect=["setup_test_data"],
+    indirect=["case"],
     ids=[
         "no title",
         "no cbz",
@@ -262,15 +257,15 @@ def test_korrect_comic_info(
     ],
 )
 def test_korrect_comic_info_error(
-    setup_test_data: dict,
+    case: dict,
     expected: str,
     db: alch.Session,
 ) -> None:
-    original = Path(re.sub(r"file://?", "", unquote(setup_test_data["book"].url)))
+    original = Path(re.sub(r"file://?", "", unquote(case["book"].url)))
     # CASE: File does not exist
     if not original.exists():
         with pytest.raises(FileNotFoundError, match=re.escape(expected)):
-            main.korrect_comic_info_database(setup_test_data.series, db, False)
+            main.korrect_comic_info_database(case.series, db, False)
         return
 
     # Arrange
@@ -278,13 +273,13 @@ def test_korrect_comic_info_error(
     with tempfile.TemporaryDirectory() as tmpdirname:
         tmpdir = Path(tmpdirname)
         copied = shutil.copy(original, tmpdir)
-        setup_test_data["book"].url = f"file://{copied}"
-        db.add(setup_test_data["book"])
+        case["book"].url = f"file://{copied}"
+        db.add(case["book"])
         db.commit()
 
         # Act & Assert
         try:
-            main.korrect_comic_info_database(setup_test_data.series, db, False)
+            main.korrect_comic_info_database(case.series, db, False)
         except (ValueError, FileNotFoundError) as e:
             assert expected in str(e)
         else:
