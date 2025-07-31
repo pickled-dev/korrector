@@ -99,6 +99,10 @@ def main() -> None:
         handlers=[handler],
     )
 
+    if args.oneshots and args.korrect_database:
+        parser.error("-o cannot be used with -O or -D")
+    if args.oneshots and args.korrect_oneshots:
+        parser.error("-o cannot be used with -O or -D")
     if args.oneshots:
         korrect_comic_info_path(args.oneshots, args.dry_run)
     if args.korrect_database:
