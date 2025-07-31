@@ -231,3 +231,52 @@ def test_korrect_comic_info_success(path: str, expected: str) -> None:
 
         # Assert
         assert xml_files_equal(extracted_path, Path(expected))
+
+
+@pytest.mark.parametrize(
+    ("path", "expected", "log"),
+    [
+        (
+            td.ALREADY_CORRECT_COMIC_INFO["path"],
+            td.ALREADY_CORRECT_COMIC_INFO["expected"],
+            td.ALREADY_CORRECT_COMIC_INFO["log"],
+        ),
+        (
+            td.NO_CBZ_FILE["path"],
+            td.NO_CBZ_FILE["expected"],
+            td.NO_CBZ_FILE["log"],
+        ),
+        (
+            td.NO_COMIC_INFO_XML["path"],
+            td.NO_COMIC_INFO_XML["expected"],
+            td.NO_COMIC_INFO_XML["log"],
+        ),
+    ],
+    ids=["Already Correct Comic Info", "No CBZ File", "No ComicInfo.xml"],
+)
+def test_korrect_comic_info_error(
+    path: str,
+    expected: str,
+    log: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # must check for non-existent cbz care first
+    if not Path(path).exists():
+        with pytest.raises(FileNotFoundError, match=re.escape(log)):
+            main.korrect_comic_info(Path(path), False)
+        return
+    # Arrange
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        tmpdir = Path(tmpdirname)
+        copied_path = tmpdir / Path(path).name
+        shutil.copy(path, copied_path)
+
+        # Act
+        with pytest.raises((ValueError, FileNotFoundError), match=log):
+            main.korrect_comic_info(copied_path, False)
+        # Extract the new ComicInfo.xml to compare
+        if expected:
+            with zipfile.ZipFile(copied_path, "r") as cbz:
+                cbz.extract("ComicInfo.xml", path=tmpdir)
+                extracted_path = tmpdir / "ComicInfo.xml"
+                assert xml_files_equal(extracted_path, Path(expected))

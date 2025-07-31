@@ -22,7 +22,8 @@ TEST_CBZ_PATH: Final[str] = "tests/test_assets/test.cbz"
 NO_TITLE_PATH: Final[str] = "tests/test_assets/NoTitleTest.cbz"
 NO_DATE_PATH: Final[str] = "tests/test_assets/NoDateTest.cbz"
 NO_COMIC_INFO_PATH: Final[str] = "tests/test_assets/NoComicInfoTest.cbz"
-KORRECTED_COMIC_INFO_PATH: Final[str] = "tests/test_assets/KorrectedComicInfoTest.cbz"
+KORRECTED_COMIC_PATH: Final[str] = "tests/test_assets/KorrectedComicInfoTest.cbz"
+KORRECTED_COMIC_INFO_PATH: Final[str] = "tests/test_assets/KorrectedComicInfo.xml"
 
 
 # Book Metadata
@@ -162,14 +163,17 @@ NORMAL_COMIC_INFO: Final[dict] = {
 }
 # test korrect_comic_info_error
 ALREADY_CORRECT_COMIC_INFO: Final[dict] = {
-    "path": KORRECTED_COMIC_INFO_PATH,
-    "log": f"ComicInfo.xml for {KORRECTED_COMIC_INFO_PATH} is already correct",
+    "path": KORRECTED_COMIC_PATH,
+    "expected": KORRECTED_COMIC_INFO_PATH,
+    "log": "is already correct",
 }
 NO_CBZ_FILE: Final[dict] = {
     "path": "tests/test_assets/does_not_exist.cbz",
-    "log": "No cbz found for tests/test_assets/does_not_exist.cbz",
+    "expected": None,
+    "log": "No cbz found for",
 }
 NO_COMIC_INFO_XML: Final[dict] = {
     "path": NO_COMIC_INFO_PATH,
-    "log": f"No ComicInfo.xml found in {NO_COMIC_INFO_PATH}",
+    "expected": None,
+    "log": "No ComicInfo.xml found in",
 }
