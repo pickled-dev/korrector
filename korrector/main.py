@@ -124,8 +124,6 @@ def make_korrection(series: Series, yes: bool = False) -> None:
         msg = f"{series.name} is manually locked by user."
         raise ValueError(msg)
     title = f"{meta.title} ({get_release_year(series, yes)})"
-    # replace single quotes with 2 single quotes to escape single quotes in SQL
-    title = title.replace(r"'", r"''")
     logger.info("Korrection: [%s] (%s) -> (%s)", series.name, meta.title, title)
     meta.title = title
 
