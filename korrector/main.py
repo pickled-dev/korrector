@@ -168,6 +168,39 @@ def korrect_database(
     return "Korrection completed successfully."
 
 
+def get_comic_info_data(
+    root: etree.Element,
+    cbz_path: Path,
+) -> tuple[etree.Element, etree.Element, str]:
+    """Parse a ComicInfo.xml, return the <Series>, <Title> elements and the new title.
+
+    Args:
+        root (etree.Element): The root element of the ComicInfo.xml file.
+        cbz_path (Path): The path to the cbz file.
+
+    Returns:
+        tuple[etree.Element, etree.Element, str]:
+            A tuple containing <Series> and <Title> Elements and the new title string.
+
+    Raises:
+        ValueError: If ComicInfo.xml is missing necessary information.
+
+    """
+    if root.find("Year") is None:
+        msg = f"No year found in ComicInfo.xml for {cbz_path}"
+        raise ValueError(msg)
+    series_elem = root.find("Series")
+    title_elem = root.find("Title")
+    if title_elem is None:
+        msg = f"No title found in ComicInfo.xml for {cbz_path}"
+        raise ValueError(msg)
+    new_title = f"{series_elem.text} ({root.find('Year').text})"
+    if title_elem.text == new_title:
+        msg = f"ComicInfo.xml for {cbz_path} is already correct"
+        raise ValueError(msg)
+    return series_elem, title_elem, new_title
+
+
 def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
     """Extract the ComicInfo.xml of a one-shot and alter the title.
 
@@ -183,39 +216,24 @@ def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
 
     Raises:
         FileNotFoundError: If the cbz cannot be found, or the cbz has no ComicInfo.xml
-        ValueError: If the cbz has no year, or the field is already correct
 
     """
     if not cbz_path.exists():
         msg = f"No cbz found for {cbz_path}"
         raise FileNotFoundError(msg)
-        # extract ComicInfo.xml to a temporary directory
+    # read ComicInfo.xml inside the cbz
     with zipfile.ZipFile(cbz_path, "r") as cbz:
         if "ComicInfo.xml" not in cbz.namelist():
             msg = f"No ComicInfo.xml found in {cbz_path}"
             raise FileNotFoundError(msg)
-        # parse the XML
+        # parse the ComicInfo.xml
         with cbz.open("ComicInfo.xml") as xml_file:
             tree = etree.parse(xml_file)
             root = tree.getroot()
-        if root.find("Year") is None:
-            msg = f"No year found in ComicInfo.xml for {cbz_path}"
-            raise ValueError(msg)
-        series_elem = root.find("Series")
-        title_elem = root.find("Title")
-        # if no title field is present, raise ValueError
-        if title_elem is None:
-            msg = f"No title found in ComicInfo.xml for {cbz_path}"
-            raise ValueError(msg)
-        # make the correct title
-        new_title = f"{series_elem.text} ({root.find('Year').text})"
-        if title_elem.text == new_title:
-            msg = f"ComicInfo.xml for {cbz_path} is already correct"
-            raise ValueError(msg)
-        logger.info("ComicInfo: (%s) -> (%s)", title_elem.text, new_title)
+        series_elem, title_elem, new_title = get_comic_info_data(root, cbz_path)
+        logger.info("ComicInfo: (%s) -> (%s)", series_elem.text, new_title)
         if dry_run:
             return
-        # set the title
         title_elem.text = new_title
         cbz_contents = cbz.namelist()
         # create a new XML file in memory
@@ -232,11 +250,11 @@ def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
             for item in cbz_contents:
                 if item != "ComicInfo.xml":
                     new_cbz.writestr(item, cbz.read(item))
-            # write new ComicInfo
+            # write the new ComicInfo
             new_cbz.writestr("ComicInfo.xml", new_xml)
-    # write over old cbz with cbz built in memory
-    with cbz_path.open("wb") as cbz:
-        cbz.write(new_cbz_data.getvalue())
+    # write over old cbz with the new cbz that we built in memory
+    with cbz_path.open("wb") as new_cbz:
+        new_cbz.write(new_cbz_data.getvalue())
 
 
 def korrect_comic_info_path(
