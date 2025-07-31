@@ -168,54 +168,6 @@ def korrect_database(
     return "Korrection completed successfully."
 
 
-def korrect_comic_info_path(
-    oneshot_path: str,
-    dry_run: bool = False,
-) -> None:
-    """Read a directory of cbz files, and alter the ComicInfo.xml of each one.
-
-    Args:
-        oneshot_path (str): The path to the directory of one-shot cbz files.
-        dry_run (bool, optional): If True, no changes will be made to the db.
-
-    """
-    cbz_files = pathlib.Path(oneshot_path).rglob("*.cbz")
-    for cbz in cbz_files:
-        try:
-            korrect_comic_info(cbz, dry_run)
-        except (ValueError, FileNotFoundError) as e:
-            logger.warning("%s", e)
-            continue
-
-
-def korrect_comic_info_database(
-    series: Series,
-    session: alch.Session,
-    dry_run: bool,
-    library_prefix: str = "",
-) -> None:
-    """Read a series in the komga database, and alter the ComicInfo.xml.
-
-    Args:
-        series (Series): The series to make the korrection for.
-        session (alch.Session): The session to use to access the database.
-        dry_run (bool): If True, no changes will be made to the db.
-        library_prefix (str, optional): A comma separated string of path replacements to
-            be made to the url of the cbz files.
-
-    """
-    if library_prefix:
-        old = library_prefix.split(",", maxsplit=1)[0]
-        old = r"file://?" + old
-        new = library_prefix.split(",")[1]
-    else:
-        old = r"file://"
-        new = ""
-    cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
-    cbz_path = Path(re.sub(old, new, unquote(cbz_url)))
-    korrect_comic_info(cbz_path, dry_run)
-
-
 def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
     """Extract the ComicInfo.xml of a one-shot and alter the title.
 
@@ -287,10 +239,58 @@ def korrect_comic_info(cbz_path: Path, dry_run: bool = False) -> None:
         cbz.write(new_cbz_data.getvalue())
 
 
+def korrect_comic_info_path(
+    oneshot_path: str,
+    dry_run: bool = False,
+) -> None:
+    """Read a directory of cbz files, and alter the ComicInfo.xml of each one.
+
+    Args:
+        oneshot_path (str): The path to the directory of one-shot cbz files.
+        dry_run (bool, optional): If True, no changes will be made to the db.
+
+    """
+    cbz_files = pathlib.Path(oneshot_path).rglob("*.cbz")
+    for cbz in cbz_files:
+        try:
+            korrect_comic_info(cbz, dry_run)
+        except (ValueError, FileNotFoundError) as e:
+            logger.warning("%s", e)
+            continue
+
+
+def korrect_comic_info_database(
+    series: Series,
+    session: alch.Session,
+    dry_run: bool,
+    library_prefix: [str, None] = None,
+) -> None:
+    """Read a series in the komga database, and alter the ComicInfo.xml.
+
+    Args:
+        series (Series): The series to make the korrection for.
+        session (alch.Session): The session to use to access the database.
+        dry_run (bool): If True, no changes will be made to the db.
+        library_prefix (str, optional): A comma separated string of path replacements to
+            be made to the url of the cbz files.
+
+    """
+    if library_prefix:
+        old = library_prefix.split(",", maxsplit=1)[0]
+        old = r"file://?" + old
+        new = library_prefix.split(",")[1]
+    else:
+        old = r"file://"
+        new = ""
+    cbz_url = session.query(Book).filter_by(series_id=series.id).first().url
+    cbz_path = Path(re.sub(old, new, unquote(cbz_url)))
+    korrect_comic_info(cbz_path, dry_run)
+
+
 def korrect_database_oneshots(
     komga_db: str,
     dry_run: bool = False,
-    library_prefix: str = None,
+    library_prefix: [str, None] = None,
 ) -> None:
     """Read a Komga db, and alter the ComicInfo.xml of improperly titled one-shots.
 
