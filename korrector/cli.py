@@ -125,7 +125,6 @@ def handle_korrect_komga(args: argparse.Namespace) -> None:
         args.backup,
         args.dry_run,
         args.yes,
-        args.replace,
     )
     if args.korrect_oneshots:
         korrect_database_oneshots(
