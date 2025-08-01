@@ -200,10 +200,10 @@ def main() -> None:
     args = parser.parse_args()
 
     # setup logging based on verbosity
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    try:
+        setup_logging(args.verbose)
+    except AttributeError:
+        setup_logging(False)
 
     # handle subcommands
     try:
