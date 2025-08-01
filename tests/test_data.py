@@ -186,22 +186,35 @@ KORRECT_COMIC_INFO_ERROR: Final[list[TestCase]] = [
 COPY_SHARE_SUCCESS: Final[list[TestCase]] = [
     TestCase(
         id="copy_share: success",
-        share_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
-        library_files={"Marvel/A.cbz": "a"},
-        expected={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
+        share_files={
+            "Marvel/Avengers/The New Avengers/A.cbz": "a",
+            "Marvel/Avengers/The New Avengers/B.cbz": "b",
+        },
+        library_files={"Marvel/Avengers/The New Avengers/A.cbz": "a"},
+        expected={
+            "Marvel/Avengers/The New Avengers/A.cbz": "a",
+            "Marvel/Avengers/The New Avengers/B.cbz": "b",
+        },
         dry_run=False,
     ),
     TestCase(
         id="copy_share: dry run does not copy",
-        share_files={"Marvel/A.cbz": "a"},
+        share_files={"Marvel/Avengers/The New Avengers/A.cbz": "a"},
         library_files={},
         expected={},
         dry_run=True,
     ),
     TestCase(
         id="copy_share: skip folder with more files",
-        share_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b"},
-        library_files={"Marvel/A.cbz": "a", "Marvel/B.cbz": "b", "Marvel/C.cbz": "c"},
+        share_files={
+            "Marvel/Avengers/The New Avengers/A.cbz": "a",
+            "Marvel/Avengers/The New Avengers/B.cbz": "b",
+        },
+        library_files={
+            "Marvel/Avengers/The New Avengers/A.cbz": "a",
+            "Marvel/Avengers/The New Avengers/B.cbz": "b",
+            "Marvel/Avengers/The New Avengers/C.cbz": "c",
+        },
         expected={},
         dry_run=False,
     ),

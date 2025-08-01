@@ -57,7 +57,7 @@ def copy_share_to_sort(
 
     """
     # iterate over all directories in the DC++ root
-    for path in pathlib.Path(share_root).iterdir():
+    for path in pathlib.Path(share_root).rglob("*"):
         if not path.is_dir():
             continue
 
