@@ -4,25 +4,12 @@ import logging
 import colorlog
 
 from korrector import (
-    copy_share_to_sort,
     korrect_comic_info_path,
     korrect_database,
     korrect_database_oneshots,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def handle_copy_share(args: argparse.Namespace) -> None:
-    if not args.share_root or not args.library_root or not args.sort_root:
-        msg = "All share, library, and sort roots must be specified"
-        raise ValueError(msg)
-    copy_share_to_sort(
-        args.share_root,
-        args.library_root,
-        args.sort_root,
-        args.dry_run,
-    )
 
 
 def add_korrect_komga_arguments(parser: argparse.ArgumentParser) -> None:
