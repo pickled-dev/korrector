@@ -13,31 +13,6 @@ from korrector import (
 logger = logging.getLogger(__name__)
 
 
-def add_copy_share_arguments(parser: argparse.ArgumentParser) -> None:
-    copy_share_parser = parser.add_parser(
-        "copy-share",
-        help="Options for copying files from DC++ share to sort directory"
-        "korrector copy-share [share_root] [library_root] [sort_root]",
-    )
-    copy_share_parser.add_argument(
-        "share_root",
-        help="Root of the DC++ share",
-    )
-    copy_share_parser.add_argument(
-        "library_root",
-        help="Root of the main comics library",
-    )
-    copy_share_parser.add_argument(
-        "sort_root",
-        help="Root of the to-sort folder",
-    )
-    copy_share_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Perform a dry run without making changes",
-    )
-
-
 def handle_copy_share(args: argparse.Namespace) -> None:
     if not args.share_root or not args.library_root or not args.sort_root:
         msg = "All share, library, and sort roots must be specified"
@@ -194,7 +169,6 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # setup subparsers for each command
-    add_copy_share_arguments(subparsers)
     add_korrect_komga_arguments(subparsers)
     add_korrect_comic_info_arguments(subparsers)
     args = parser.parse_args()
@@ -207,9 +181,7 @@ def main() -> None:
 
     # handle subcommands
     try:
-        if args.command == "copy-share":
-            handle_copy_share(args)
-        elif args.command == "korrect-komga":
+        if args.command == "korrect-komga":
             handle_korrect_komga(args)
         elif args.command == "korrect-comic-info":
             handle_korrect_comic_info(args)
