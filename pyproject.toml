@@ -1,23 +1,22 @@
 [project]
 name = "korrector"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "A project to correct Komga database entries and ComicInfo.xml to match reading lists."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "lxml>=6.0.0",
-    "sqlalchemy>=2.0.42",
+license = "GPL-3.0-or-later"
+maintainers = [
+    { name = "Matthew Pickle", email = "matthew.e.pickle@gmail.com" },
 ]
+dependencies = ["lxml>=6.0.0", "sqlalchemy>=2.0.42"]
 
 [project.scripts]
 korrector = "korrector.cli:main"
 
 [dependency-groups]
-dev = [
-    "colorlog>=6.9.0",
-    "pytest>=8.4.1",
-    "ruff>=0.12.7",
-]
+dev = ["colorlog>=6.9.0"]
+test = ["pytest>=8.4.1"]
+lint = ["ruff>=0.12.7"]
 
 [tool.ruff.per-file-ignores]
 "tests/**" = ["D", "S101", "ARG001", "PT017"]

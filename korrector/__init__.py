@@ -1,7 +1,29 @@
-"""Korrector package: tools for Komga database correction."""
+"""Korrector package: tools for Komga database and ComicInfo.xml correction."""
 
-from .main import korrect_comic_info_path as korrect_comic_info_path
-from .main import korrect_database as korrect_database
-from .main import korrect_database_oneshots as korrect_database_oneshots
+__all__ = ["__version__", "setup_logging"]
 
-__version__ = "0.1.0"
+import logging
+from importlib.metadata import version
+
+from colorlog import ColoredFormatter
+
+__version__ = version("korrector")
+
+
+# TODO(mpickle): add a log file named korrector.log somewhere
+# https://github.com/pickled-dev/korrector/issues/2
+def setup_logging() -> None:
+    """Set up logging for the korrector package."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        ColoredFormatter(
+            "%(log_color)s%(levelname)s:%(name)s:%(message)s",
+            datefmt=None,
+            reset=True,
+        ),
+    )
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[handler],
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )

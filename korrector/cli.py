@@ -3,13 +3,13 @@ import logging
 
 import colorlog
 
-from korrector import (
+from korrector.main import (
     korrect_comic_info_path,
     korrect_database,
     korrect_database_oneshots,
 )
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 def add_korrect_komga_arguments(parser: argparse.ArgumentParser) -> None:
@@ -173,7 +173,7 @@ def main() -> None:
         elif args.command == "korrect-comic-info":
             handle_korrect_comic_info(args)
     except Exception:
-        logger.exception(
+        LOGGER.exception(
             "Error occurred while processing command '%s'",
             args.command,
         )
