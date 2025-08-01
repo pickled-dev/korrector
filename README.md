@@ -15,6 +15,39 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
 
+$ korrector korrect-komga --help
+usage: korrector korrect-komga [-h] [-v] [-b BACKUP] [-d] [--dry-run] [-y] [-r REPLACE] [-o] [db_path]
+
+positional arguments:
+  db_path               Path to Komga database file
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         adds verbose output
+  -b, --backup BACKUP   Directory to store database backup
+  -d, --korrect-database
+                        Adjust the tables in the Komga db to facilitate importing reading lists, not including one-shots
+  --dry-run             Perform a dry run without making changes
+  -y, --yes             Accept all default prompts
+  -r, --replace REPLACE
+                        comma separated string of path replacements for use with containerized installations. Ex. you would
+                        pass'data,/data/print/comics' if your container mounts /data/print/comics as a volume at /data
+  -o, --korrect-oneshots
+                        Use db to find one-shots cbz files and correct their ComicInfo.xml.Consider using -r if you are running Komga
+                        in a containerized environment.
+
+$ korrector korrect-comic-info --help
+usage: korrector korrect-comic-info [-h] [-d] [-v] oneshots
+
+positional arguments:
+  oneshots       Path to a dir containing one-shot CBZ files to correct ComicInfo.xml
+
+options:
+  -h, --help     show this help message and exit
+  -d, --dry-run  Perform a dry run without making changes
+  -v, --verbose  adds verbose output
+
+
 ```
 
 # Reading Lists
