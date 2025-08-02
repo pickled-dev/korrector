@@ -5,6 +5,9 @@ import requests
 
 from korrector.krakoa import Krakoa, Series
 
+# TODO @pickled-dev: copilot placeholder tests
+# https://github.com/pickled-dev/korrector/issues/7
+
 
 def test_series_from_json() -> None:
     data = {
