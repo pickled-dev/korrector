@@ -134,61 +134,6 @@ class Krakoa:
             logger.exception("HTTP error for %s [%s]: ", url, method)
         return None
 
-    def get_release_year(
-        self,
-        series_id: str,
-        series_name: str,
-        default: bool = False,
-    ) -> str | None:
-        """Get the release year for a series using the Komga REST API.
-
-        Args:
-            series_id (str): The series ID to fetch books for.
-            series_name (str): The name of the series (for fallback year guess).
-            default (bool, optional): If True, will prompt the user to enter the year manually.
-
-        Returns:
-            str: The release year as a string, or None if no year could be determined.
-
-        """
-        url = f"{self.api_base_url}/books/filter"
-        data = {
-            "condition": {
-                "seriesId": {
-                    "operator": "is",
-                    "value": series_id,
-                },
-            },
-        }
-        resp = self.make_request(url, self.headers, data)
-        books = resp.json().get("content", [])
-
-        # Try to find the first issue (number == "1")
-        first = next((book for book in books if book.get("number") == "1"), None)
-        if first is not None:
-            release_date = first.get("releaseDate")
-            pattern = re.compile(r"\d{4}-\d{2}-\d{2}")
-            if not release_date or not pattern.match(release_date):
-                logger.warning("Invalid release date found for series '%s'.", series_name)
-                return None
-            return release_date.split("-")[0]
-
-        # Guess the year from the series name if no first issue is found
-        name = series_name or ""
-        match = re.search(r"\((\d{4})\)", name)
-        if match is None:
-            logger.warning("No first issue or year found in '%s'", name)
-            return None
-        year = match.group(1)
-
-        # prompt user offering guess year as default
-        if default:
-            return year
-        response = input(
-            f"No first issue found for {name}. Enter year manually (Default: {year}): ",
-        )
-        return response or year
-
     def make_korrection(self, series_id: str, title: str) -> None:
         """Update the metadata of a series with a new title and sort title.
 
