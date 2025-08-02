@@ -16,12 +16,9 @@ def add_korrect_komga_arguments(parser: argparse.ArgumentParser) -> None:
         help="Options for correcting comic information in Komga database",
     )
     korrect_komga_parser.add_argument(
-        "-d",
-        "--korrect-database",
-        dest="korrect_database",
+        "--dry-run",
         action="store_true",
-        help="Adjust the tables in the Komga db to facilitate importing reading lists, "
-        "not including one-shots",
+        help="Perform a dry run without making changes",
     )
 
 
