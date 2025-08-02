@@ -44,7 +44,6 @@ class Series:
     oneshot: bool = False
     title: str | None = None
     title_lock: bool = False
-    sort_title: str | None = None
     links: list[Link] = None
 
     @classmethod
@@ -61,14 +60,11 @@ class Series:
         return cls(
             id=response["id"],
             name=response["name"],
-            title=response.get("title"),
-            release_date=response.get("releaseDate"),
-            oneshot=response.get("oneshot", False),
-            title_lock=response.get("titleLock", False),
-            sort_title=response.get("sortTitle"),
-            links=[
-                Link(label=link["label"], url=link["url"]) for link in response.get("links", [])
-            ],
+            title=response["metadata"]["title"],
+            release_date=response["booksMetadata"]["releaseDate"],
+            oneshot=response["oneshot"],
+            title_lock=response["metadata"]["titleLock"],
+            links=[],
         )
 
 
