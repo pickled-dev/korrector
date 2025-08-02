@@ -42,6 +42,7 @@ class Series:
     name: str
     release_date: str | None = None
     oneshot: bool = False
+    title: str | None = None
     title_lock: bool = False
     sort_title: str | None = None
     links: list[Link] = None
@@ -60,6 +61,7 @@ class Series:
         return cls(
             id=response["id"],
             name=response["name"],
+            title=response.get("title"),
             release_date=response.get("releaseDate"),
             oneshot=response.get("oneshot", False),
             title_lock=response.get("titleLock", False),
@@ -186,24 +188,6 @@ class Krakoa:
             f"No first issue found for {name}. Enter year manually (Default: {year}): ",
         )
         return response or year
-
-    @staticmethod
-    def _generate_sort_title(title: str) -> str:
-        """Generate a sort title by removing leading articles (e.g., 'The', 'A', 'An').
-
-        Args:
-            title (str): The original title.
-
-        Returns:
-            str: The sort title with leading articles removed and whitespace stripped.
-
-        """
-        articles = ("the ", "a ", "an ")
-        title_lower = title.lower().lstrip()
-        for article in articles:
-            if title_lower.startswith(article):
-                return title[len(article) :].lstrip()
-        return title.lstrip()
 
     def make_korrection(self, series_id: str, title: str) -> None:
         """Update the metadata of a series with a new title and sort title.
