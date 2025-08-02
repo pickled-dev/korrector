@@ -4,9 +4,7 @@ import logging
 import colorlog
 
 from korrector.main import (
-    korrect_comic_info_path,
     korrect_database,
-    korrect_database_oneshots,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -18,24 +16,6 @@ def add_korrect_komga_arguments(parser: argparse.ArgumentParser) -> None:
         help="Options for correcting comic information in Komga database",
     )
     korrect_komga_parser.add_argument(
-        "db_path",
-        nargs="?",
-        default=None,
-        help="Path to Komga database file",
-    )
-    korrect_komga_parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="adds verbose output",
-    )
-    korrect_komga_parser.add_argument(
-        "-b",
-        "--backup",
-        dest="backup",
-        help="Directory to store database backup",
-    )
-    korrect_komga_parser.add_argument(
         "-d",
         "--korrect-database",
         dest="korrect_database",
@@ -43,90 +23,10 @@ def add_korrect_komga_arguments(parser: argparse.ArgumentParser) -> None:
         help="Adjust the tables in the Komga db to facilitate importing reading lists, "
         "not including one-shots",
     )
-    korrect_komga_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Perform a dry run without making changes",
-    )
-    korrect_komga_parser.add_argument(
-        "-y",
-        "--yes",
-        action="store_true",
-        help="Accept all default prompts",
-    )
-    korrect_komga_parser.add_argument(
-        "-r",
-        "--replace",
-        dest="replace",
-        help="comma separated string of path replacements for use with containerized"
-        " installations. Ex. you would pass'data,/data/print/comics' if your container"
-        " mounts /data/print/comics as a volume at /data",
-    )
-    korrect_komga_parser.add_argument(
-        "-o",
-        "--korrect-oneshots",
-        dest="korrect_oneshots",
-        action="store_true",
-        help="Use db to find one-shots cbz files and correct their ComicInfo.xml."
-        "Consider using -r if you are running Komga in a containerized environment.",
-    )
 
 
 def handle_korrect_komga(args: argparse.Namespace) -> None:
-    if not args.db_path:
-        msg = "Database path must be specified"
-        raise ValueError(msg)
-    if args.korrect_database and args.korrect_oneshots:
-        msg = "-d cannot be used with -o"
-        raise ValueError(msg)
-    if args.replace and not args.korrect_oneshots:
-        msg = "-r can only be used with -o"
-        raise ValueError(msg)
-    korrect_database(
-        args.db_path,
-        args.backup,
-        args.dry_run,
-        args.yes,
-    )
-    if args.korrect_oneshots:
-        korrect_database_oneshots(
-            args.db_path,
-            args.dry_run,
-            args.replace,
-        )
-
-
-def add_korrect_comic_info_arguments(parser: argparse.ArgumentParser) -> None:
-    korrect_comic_info_parser = parser.add_parser(
-        "korrect-comic-info",
-        help="Options for correcting comic information in Komga database",
-    )
-    korrect_comic_info_parser.add_argument(
-        "oneshots",
-        help="Path to a dir containing one-shot CBZ files to correct ComicInfo.xml",
-    )
-    korrect_comic_info_parser.add_argument(
-        "-d",
-        "--dry-run",
-        action="store_true",
-        help="Perform a dry run without making changes",
-    )
-    korrect_comic_info_parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="adds verbose output",
-    )
-
-
-def handle_korrect_comic_info(args: argparse.Namespace) -> None:
-    if not args.oneshots:
-        msg = "Oneshots directory must be specified"
-        raise ValueError(msg)
-    korrect_comic_info_path(
-        args.oneshots,
-        args.dry_run,
-    )
+    korrect_database(args.dry_run)
 
 
 def setup_logging(verbose: bool) -> None:
@@ -157,7 +57,6 @@ def main() -> None:
 
     # setup subparsers for each command
     add_korrect_komga_arguments(subparsers)
-    add_korrect_comic_info_arguments(subparsers)
     args = parser.parse_args()
 
     # setup logging based on verbosity
@@ -170,8 +69,6 @@ def main() -> None:
     try:
         if args.command == "korrect-komga":
             handle_korrect_komga(args)
-        elif args.command == "korrect-comic-info":
-            handle_korrect_comic_info(args)
     except Exception:
         LOGGER.exception(
             "Error occurred while processing command '%s'",
