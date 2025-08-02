@@ -1,8 +1,9 @@
 """Provides classes and methods to interact with the Komga REST API."""
 
 import logging
-import re
+from collections.abc import Iterator
 from dataclasses import dataclass
+from itertools import count
 
 import requests
 
@@ -151,9 +152,9 @@ class Krakoa:
             "sortTitle": self._generate_sort_title(title),
             "sortTitleLock": True,
         }
-        self.make_request(url, self.headers, data)
+        self.make_request(method="POST", url=url, headers=self.headers, data=data)
 
-    def get_all_series(self, page: int = 0, size: int = 100) -> list[Series]:
+    def get_all_series(self) -> Iterator[Series]:
         """Fetch all series from the Komga API.
 
         Args:
@@ -164,6 +165,9 @@ class Krakoa:
             list[dict]: A list of series dictionaries.
 
         """
-        url = f"{self.api_base_url}/series?page={page}&size={size}"
-        resp = self.make_request(url, self.headers)
-        return [Series.from_json(s) for s in resp.json().get("content", [])]
+        for i in count():
+            url = f"{self.api_base_url}/series/list?page={i}&size=100"
+            resp = self.make_request(method="POST", url=url, data={}, headers=self.headers)
+            yield from (Series.from_json(s) for s in resp["content"])
+            if resp["last"]:
+                break
