@@ -9,6 +9,9 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# TODO: @pickled-dev: do real request handling
+# https://github.com/pickled-dev/korrector/issues/8
+
 
 @dataclass
 class Link:
